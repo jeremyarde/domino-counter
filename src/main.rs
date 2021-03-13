@@ -120,18 +120,44 @@ fn construct_dominoes() -> Vec<DominoPiece> {
 fn main() {
     // let doms = construct_dominoes();
 
-    // let range: ColorRange = ColorRange {
-    //     r: (0..255),
-    //     g: (0..122),
-    //     b: (0..111),
-    // };
     // manipulate_image()
     // count_circles();
     let domino_pic_path = "dominoes/eval/2-3.jpg"; //"dominoes/Screenshot_20210309-204319_Photos~4.jpg"
     find_domino(domino_pic_path);
+
+    /*
+    overall goals:
+    1. find all dominoes in the picture
+        - find edges (whiteish color, canny)
+    2. separate dominoes into top/bottom
+        - find separator black line
+        - number of pixels in a row?
+    3. determine which halves are what domino numbers
+        - ratio of white to non-white pixels
+        - pixels colors
+        - send all pixels of each half to ML algorithm
+
+    */
 }
 
-fn detect_domino_edges(image: &DynamicImage) -> DominoImageSection {
+fn detect_domino_edges_eval_data(image: &mut DynamicImage) -> DominoImageSection {
+    let height = image.height();
+    let width = image.width();
+
+    let result = DominoImageSection {
+        top: 0,
+        bottom: height,
+        left: 0,
+        right: width,
+        middle: height / 2,
+    };
+
+    draw_domino_lines(image, &result);
+
+    return result;
+}
+
+fn detect_domino_edges(image: &mut DynamicImage) -> DominoImageSection {
     let mut lines_image = image.clone();
     let top_line = 0;
     let height = image.height();
@@ -141,11 +167,9 @@ fn detect_domino_edges(image: &DynamicImage) -> DominoImageSection {
     let mut leftedge = 0;
     let mut rightedge = 0;
 
-    let line_colour = Rgba([255, 0, 0, 1]);
-
     let mut gray_img = image.grayscale().as_mut_luma8().unwrap().clone();
     let edges: ImageBuffer<Luma<u8>, Vec<u8>> = canny(&gray_img, 70.0, 100.0);
-    edges.save("tests/canny_edges.png");
+    edges.save("tests/canny_edges.png").unwrap();
 
     // finding the top of the dominoe
     for y in (0..height).rev() {
@@ -153,12 +177,12 @@ fn detect_domino_edges(image: &DynamicImage) -> DominoImageSection {
         if pixel[1] == 255 {
             println!("Found bottom edge at {}", y);
             bottomedge = y;
-            imageproc::drawing::draw_line_segment_mut(
-                &mut lines_image,
-                (0.0, y as f32),
-                (width as f32, y as f32),
-                line_colour,
-            );
+            // imageproc::drawing::draw_line_segment_mut(
+            //     &mut lines_image,
+            //     (0.0, y as f32),
+            //     (width as f32, y as f32),
+            //     line_colour,
+            // );
             break;
         }
     }
@@ -168,24 +192,24 @@ fn detect_domino_edges(image: &DynamicImage) -> DominoImageSection {
         if pixel[1] == 255 {
             println!("Found top edge at {}", y);
             topedge = y;
-            imageproc::drawing::draw_line_segment_mut(
-                &mut lines_image,
-                (0.0, y as f32),
-                (width as f32, y as f32),
-                line_colour,
-            );
+            // imageproc::drawing::draw_line_segment_mut(
+            //     &mut lines_image,
+            //     (0.0, y as f32),
+            //     (width as f32, y as f32),
+            //     line_colour,
+            // );
             break;
         }
     }
 
     // instead of this, we can find X consecutive pixels that are "black" (less than 40-50) (40,40,40)
     let middle: f32 = ((bottomedge - topedge) / 2 + topedge) as f32;
-    imageproc::drawing::draw_line_segment_mut(
-        &mut lines_image,
-        (0.0, middle as f32),
-        (width as f32, middle as f32),
-        line_colour,
-    );
+    // imageproc::drawing::draw_line_segment_mut(
+    //     &mut lines_image,
+    //     (0.0, middle as f32),
+    //     (width as f32, middle as f32),
+    //     line_colour,
+    // );
 
     let mut left = 0;
     let mut right = 0;
@@ -195,12 +219,12 @@ fn detect_domino_edges(image: &DynamicImage) -> DominoImageSection {
         if pixel[1] == 255 {
             println!("Found left edge at {}", x);
             left = x;
-            imageproc::drawing::draw_line_segment_mut(
-                &mut lines_image,
-                (x as f32, 0.0),
-                (x as f32, height as f32),
-                line_colour,
-            );
+            // imageproc::drawing::draw_line_segment_mut(
+            //     &mut lines_image,
+            //     (x as f32, 0.0),
+            //     (x as f32, height as f32),
+            //     line_colour,
+            // );
             break;
         }
     }
@@ -210,17 +234,17 @@ fn detect_domino_edges(image: &DynamicImage) -> DominoImageSection {
         if pixel[1] == 255 {
             println!("Found right edge at {}", x);
             right = x;
-            imageproc::drawing::draw_line_segment_mut(
-                &mut lines_image,
-                (x as f32, 0.0),
-                (x as f32, height as f32),
-                line_colour,
-            );
+            // imageproc::drawing::draw_line_segment_mut(
+            //     &mut lines_image,
+            //     (x as f32, 0.0),
+            //     (x as f32, height as f32),
+            //     line_colour,
+            // );
             break;
         }
     }
 
-    lines_image.save("tests/found_squares.png").unwrap();
+    // lines_image.save("tests/found_squares.png").unwrap();
 
     let mut result = DominoImageSection {
         top: topedge,
@@ -229,15 +253,72 @@ fn detect_domino_edges(image: &DynamicImage) -> DominoImageSection {
         right: right,
         middle: middle as u32,
     };
+
+    draw_domino_lines(image, &result);
+
     return result;
+}
+
+fn draw_domino_lines(image: &mut DynamicImage, dom_section: &DominoImageSection) {
+    let line_colour = Rgba([122, 255, 0, 1]);
+
+    // top line
+    imageproc::drawing::draw_line_segment_mut(
+        image,
+        (0.0, 0.0),
+        (dom_section.right as f32, 0 as f32),
+        line_colour,
+    );
+
+    // bottom line
+    imageproc::drawing::draw_line_segment_mut(
+        image,
+        (0.0 as f32, dom_section.bottom as f32 - 1.0 as f32),
+        (
+            dom_section.right as f32,
+            dom_section.bottom as f32 - 1.0 as f32,
+        ),
+        line_colour,
+    );
+
+    // left line
+    imageproc::drawing::draw_line_segment_mut(
+        image,
+        (0.0, 0.0),
+        (0.0, dom_section.bottom as f32),
+        line_colour,
+    );
+
+    // right line
+    imageproc::drawing::draw_line_segment_mut(
+        image,
+        (dom_section.right as f32 - 1.0 as f32, 0.0),
+        (
+            dom_section.right as f32 - 1.0 as f32,
+            dom_section.bottom as f32,
+        ),
+        line_colour,
+    );
+
+    // middle line
+    let middle_point = (dom_section.bottom / 2) as f32;
+    imageproc::drawing::draw_line_segment_mut(
+        image,
+        (0.0 as f32, middle_point),
+        (dom_section.right as f32, middle_point),
+        line_colour,
+    );
+
+    image.save("tests/found_squares.png").unwrap();
 }
 
 fn find_domino(image_path: &str) {
     // let domino_pic_path = "dominoes/eval/2-3.jpg"; //"dominoes/Screenshot_20210309-204319_Photos~4.jpg"
-    let img = image::open(image_path).unwrap();
+    let mut img = image::open(image_path).unwrap();
 
     // something
-    let domino = detect_domino_edges(&img);
+    // let domino = detect_domino_edges(&img);
+    let domino = detect_domino_edges_eval_data(&mut img);
 
     let mut img_clone = img.clone();
     let domino_piece = img_clone.sub_image(
