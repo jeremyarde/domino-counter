@@ -8,7 +8,7 @@ use image::{
     RgbaImage, SubImage,
 };
 use imageproc::hough;
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 struct DominoImageSection {
     top: u32,
@@ -422,8 +422,23 @@ fn find_domino(image_path: &str) {
 fn count_most_common_pixels(img: &DynamicImage) {
     let histo = imageproc::stats::histogram(&img.to_bgra8());
 
-    for channel in histo.channels.into_iter() {}
-
+    let mut max_values: Vec<(usize, u32)> = Vec::new();
+    let lowest_val: u32 = 0;
+    let lowest_key: usize = 0;
+    for (i, channel) in histo.channels.into_iter().enumerate() {
+        match i {
+            0 => println!("R"),
+            1 => println!("G"),
+            2 => println!("B"),
+            _ => (),
+        }
+        for (rgb_key, &value) in channel.iter().enumerate() {
+            max_values.push((rgb_key, value));
+        }
+        max_values.sort_by_key(|k| k.1);
+        let top_n: Vec<(usize, u32)> = max_values.clone().into_iter().take(10).collect();
+        println!("{:?}", top_n);
+    }
     println!();
     // for channel in histo.
 }
