@@ -1,7 +1,11 @@
 extern crate image;
 extern crate imageproc;
 use core::f32;
-use imageproc::{definitions::Image, edges::canny, filter::gaussian_blur_f32};
+use imageproc::{
+    definitions::Image,
+    edges::canny,
+    filter::{self, gaussian_blur_f32, median_filter, separable_filter},
+};
 
 use image::{
     imageops::blur, DynamicImage, GenericImage, GenericImageView, ImageBuffer, Luma, LumaA, Pixel,
@@ -236,7 +240,7 @@ fn main() {
         - ratio of white to non-white pixels
         - pixels colors
         - send all pixels of each half to ML algorithm
-
+        - disregard the white color? - probably ML problem
     */
 }
 
@@ -400,6 +404,7 @@ fn find_domino(image_path: &str) {
     let top_piece = img.crop(domino.left, domino.top, domino.right, domino.middle);
     let bottom_piece = img.crop(domino.left, domino.middle, domino.right, domino.bottom);
 
+    println!("Top:");
     count_most_common_pixels(&top_piece);
     count_ratio(&domino_piece, 180);
 
@@ -410,35 +415,74 @@ fn find_domino(image_path: &str) {
         domino.bottom - domino.middle,
     );
 
+    println!("Bottom:");
     count_most_common_pixels(&bottom_piece);
     count_ratio(&domino_piece, 180);
 }
 
 fn count_most_common_pixels(img: &DynamicImage) {
+    /*
+    Instead of doing the histogram, maybe doing a <(r,g,b), u32>
+    map would be better than per channel histogram.
+    Would give better exact pixels, which can be used to determine other colors other than white.
+     */
+
     let gaussian_blur = 5.0;
-    let testblur = imageproc::filter::gaussian_blur_f32(&img.to_bgra8(), gaussian_blur);
+    // let testblur = imageproc::filter::gaussian_blur_f32(&img.to_bgra8(), gaussian_blur);
+    let testblur = imageproc::filter::median_filter(&img.to_bgra8(), 5, 5);
     testblur
         .save(format!("tests/blur_{}.jpg", gaussian_blur))
         .unwrap();
 
-    let histo = imageproc::stats::histogram(&img.to_bgra8());
+    let histo = imageproc::stats::histogram(&testblur);
 
-    let mut max_values: Vec<(usize, u32)> = Vec::new();
-    let lowest_val: u32 = 0;
-    let lowest_key: usize = 0;
+    let mut max_values: Vec<(usize, u32)>;
     for (i, channel) in histo.channels.into_iter().enumerate() {
-        match i {
-            0 => println!("R"),
-            1 => println!("G"),
-            2 => println!("B"),
-            _ => (),
-        }
+        max_values = Vec::new();
+
         for (rgb_key, &value) in channel.iter().enumerate() {
             max_values.push((rgb_key, value));
             // println!("{:?}", max_values);
         }
         max_values.sort_by(|a, b| a.1.cmp(&b.1));
-        let top_n: Vec<(usize, u32)> = max_values.clone().into_iter().rev().take(10).collect();
+
+        // general white pixel filter
+        max_values = max_values
+            .iter()
+            .cloned()
+            .filter(|x| x.0 < 200)
+            .collect::<Vec<(usize, u32)>>();
+
+        match i {
+            0 => {
+                println!("R");
+
+                max_values = max_values
+                    .iter()
+                    .cloned()
+                    .filter(|x| x.0 < 240)
+                    .collect::<Vec<(usize, u32)>>();
+            }
+            1 => {
+                println!("G");
+                max_values = max_values
+                    .iter()
+                    .cloned()
+                    .filter(|x| x.0 < 220)
+                    .collect::<Vec<(usize, u32)>>();
+            }
+            2 => {
+                println!("B");
+                max_values = max_values
+                    .iter()
+                    .cloned()
+                    .filter(|x| x.0 < 200)
+                    .collect::<Vec<(usize, u32)>>();
+            }
+            _ => (),
+        }
+        let top_n: Vec<(usize, u32)> = max_values.iter().cloned().rev().take(10).collect();
+
         println!("{:?}", top_n);
     }
     println!();
