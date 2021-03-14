@@ -1,11 +1,11 @@
 extern crate image;
 extern crate imageproc;
 use core::f32;
-use imageproc::{definitions::Image, edges::canny};
+use imageproc::{definitions::Image, edges::canny, filter::gaussian_blur_f32};
 
 use image::{
-    DynamicImage, GenericImage, GenericImageView, ImageBuffer, Luma, LumaA, Pixel, Rgb, Rgba,
-    RgbaImage, SubImage,
+    imageops::blur, DynamicImage, GenericImage, GenericImageView, ImageBuffer, Luma, LumaA, Pixel,
+    Rgb, Rgba, RgbaImage, SubImage,
 };
 use imageproc::hough;
 use std::{collections::HashMap, path::Path};
@@ -420,6 +420,12 @@ fn find_domino(image_path: &str) {
 }
 
 fn count_most_common_pixels(img: &DynamicImage) {
+    let gaussian_blur = 5.0;
+    let testblur = imageproc::filter::gaussian_blur_f32(&img.to_bgra8(), gaussian_blur);
+    testblur
+        .save(format!("tests/blur_{}.jpg", gaussian_blur))
+        .unwrap();
+
     let histo = imageproc::stats::histogram(&img.to_bgra8());
 
     let mut max_values: Vec<(usize, u32)> = Vec::new();
@@ -434,9 +440,10 @@ fn count_most_common_pixels(img: &DynamicImage) {
         }
         for (rgb_key, &value) in channel.iter().enumerate() {
             max_values.push((rgb_key, value));
+            // println!("{:?}", max_values);
         }
-        max_values.sort_by_key(|k| k.1);
-        let top_n: Vec<(usize, u32)> = max_values.clone().into_iter().take(10).collect();
+        max_values.sort_by(|a, b| a.1.cmp(&b.1));
+        let top_n: Vec<(usize, u32)> = max_values.clone().into_iter().rev().take(10).collect();
         println!("{:?}", top_n);
     }
     println!();
