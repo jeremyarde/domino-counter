@@ -240,7 +240,7 @@ fn main() {
     */
 }
 
-fn detect_domino_edges_eval_data(image: &mut DynamicImage) -> DominoImageSection {
+fn detect_domino_edges_eval_data(image: DynamicImage) -> DominoImageSection {
     let height = image.height();
     let width = image.width();
 
@@ -252,7 +252,8 @@ fn detect_domino_edges_eval_data(image: &mut DynamicImage) -> DominoImageSection
         middle: height / 2,
     };
 
-    draw_domino_lines(image, &result);
+    let mut img_clone = image.clone();
+    draw_domino_lines(&mut img_clone, &result);
 
     return result;
 }
@@ -306,12 +307,6 @@ fn detect_domino_edges(image: &mut DynamicImage) -> DominoImageSection {
         if pixel[1] == 255 {
             println!("Found right edge at {}", x);
             right = x;
-            // imageproc::drawing::draw_line_segment_mut(
-            //     &mut lines_image,
-            //     (x as f32, 0.0),
-            //     (x as f32, height as f32),
-            //     line_colour,
-            // );
             break;
         }
     }
@@ -391,7 +386,7 @@ fn find_domino(image_path: &str) {
     // println!("{:#?}", &histo);
     // something
     // let domino = detect_domino_edges(&img);
-    let domino = detect_domino_edges_eval_data(&mut img);
+    let domino = detect_domino_edges_eval_data(img.clone());
 
     let mut img_clone = img.clone();
     let domino_piece = img_clone.sub_image(
