@@ -427,8 +427,45 @@ fn count_most_common_pixels(img: &DynamicImage) {
     Would give better exact pixels, which can be used to determine other colors other than white.
      */
 
+    let testblur = imageproc::filter::median_filter(&img.to_bgra8(), 5, 5);
+    testblur.save(format!("tests/median_filter.jpg")).unwrap();
+
+    let mut pixel_histo: HashMap<(u8, u8, u8), u32> = HashMap::new();
+    let bucket_mod = 5;
+    for pixel in testblur.pixels().into_iter() {
+        // pixel_histo
+        //     .get_mut(&(pixel[0], pixel[1], pixel[2]))
+        //     .unwrap() += 1;
+        *pixel_histo
+            .entry((
+                pixel[0] % bucket_mod,
+                pixel[1] % bucket_mod,
+                pixel[2] % bucket_mod,
+            ))
+            .or_insert(0) += 1;
+    }
+
+    let mut top_n: Vec<((u8, u8, u8), u32)> = pixel_histo
+        .iter()
+        .map(|(&rgb, &val)| {
+            (
+                (rgb.0 * bucket_mod, rgb.1 * bucket_mod, rgb.2 * bucket_mod),
+                val,
+            )
+        })
+        .collect();
+
+    top_n.sort_by(|(_, a), (_, b)| a.cmp(&b));
+    top_n = top_n.into_iter().take(10).collect();
+    println!("{:?}", top_n);
+
+    println!();
+    // for channel in histo.
+}
+
+fn histogram(img: &DynamicImage) {
     let gaussian_blur = 5.0;
-    // let testblur = imageproc::filter::gaussian_blur_f32(&img.to_bgra8(), gaussian_blur);
+
     let testblur = imageproc::filter::median_filter(&img.to_bgra8(), 5, 5);
     testblur
         .save(format!("tests/blur_{}.jpg", gaussian_blur))
@@ -485,8 +522,6 @@ fn count_most_common_pixels(img: &DynamicImage) {
 
         println!("{:?}", top_n);
     }
-    println!();
-    // for channel in histo.
 }
 
 fn is_white_pixel(pixel: Rgba<u8>) -> bool {
