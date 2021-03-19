@@ -12,7 +12,7 @@ use image::{
     Rgb, Rgba, RgbaImage, SubImage,
 };
 use imageproc::hough;
-use std::{collections::HashMap, path::Path};
+use std::{borrow::Borrow, collections::HashMap, ops::Range, path::Path};
 
 struct DominoImageSection {
     top: u32,
@@ -22,10 +22,11 @@ struct DominoImageSection {
     middle: u32,
 }
 
+#[derive(Debug)]
 struct ColorRange {
-    r: std::ops::Range<u32>,
-    g: std::ops::Range<u32>,
-    b: std::ops::Range<u32>,
+    r: std::ops::Range<u8>,
+    g: std::ops::Range<u8>,
+    b: std::ops::Range<u8>,
 }
 
 impl Default for ColorRange {
@@ -38,11 +39,12 @@ impl Default for ColorRange {
     }
 }
 
+#[derive(Debug)]
 struct DominoRange {
     ratio: std::ops::Range<f32>,
-    leeway: u32,
+    leeway: u8,
     color_range: ColorRange,
-    value: u32,
+    value: u8,
 }
 
 impl Default for DominoRange {
@@ -56,35 +58,27 @@ impl Default for DominoRange {
     }
 }
 
-enum DominoPiece {
-    ZERO(DominoRange),
-    ONE(DominoRange),
-    TWO(DominoRange),
-    THREE(DominoRange),
-    FOUR(DominoRange),
-    FIVE(DominoRange),
-    SIX(DominoRange),
-    SEVEN(DominoRange),
-    EIGHT(DominoRange),
-    NINE(DominoRange),
-    TEN(DominoRange),
-    ELEVEN(DominoRange),
-    TWELVE(DominoRange),
-}
+// #[derive(Debug)]
+// enum DominoPiece {
+//     ZERO(DominoRange),
+//     ONE(DominoRange),
+//     TWO(DominoRange),
+//     THREE(DominoRange),
+//     FOUR(DominoRange),
+//     FIVE(DominoRange),
+//     SIX(DominoRange),
+//     SEVEN(DominoRange),
+//     EIGHT(DominoRange),
+//     NINE(DominoRange),
+//     TEN(DominoRange),
+//     ELEVEN(DominoRange),
+//     TWELVE(DominoRange),
+// }
 
-fn construct_dominoes() -> Vec<DominoPiece> {
+fn construct_dominoes() -> Vec<DominoRange> {
     let mut dominoes = vec![];
 
-    // 1.0..=1.1 => 9,
-    // 1.55..=1.65 => 10,
-    // 1.65..=1.70 => 7,
-    // 1.70..=1.85 => 11,
-    // 2.0..=2.12 => 10,
-    // 2.12..=2.2 => 5, // also 12
-    // 2.7..=2.85 => 3,
-    // 3.0..=3.15 => 2,
-
-    dominoes.push(DominoPiece::ZERO(DominoRange {
+    dominoes.push(DominoRange {
         ratio: (1.0..99.0),
         color_range: ColorRange {
             r: (240..240),
@@ -93,127 +87,258 @@ fn construct_dominoes() -> Vec<DominoPiece> {
         },
         value: 0,
         ..Default::default()
-    }));
-    dominoes.push(DominoPiece::ONE(DominoRange {
+    });
+    dominoes.push(DominoRange {
         ratio: (6.91..6.91),
         color_range: ColorRange {
-            r: (50..75),
+            r: (60..80),
             g: (100..130),
-            b: (100..140),
+            b: (110..150),
         },
         value: 1,
         ..Default::default()
-    }));
-    dominoes.push(DominoPiece::TWO(DominoRange {
+    });
+    dominoes.push(DominoRange {
         ratio: (6.91..6.91),
         color_range: ColorRange {
-            r: (50..75),
-            g: (100..130),
-            b: (100..140),
+            r: (65..85),
+            g: (130..150),
+            b: (25..45),
         },
         value: 2,
         ..Default::default()
-    }));
-    dominoes.push(DominoPiece::THREE(DominoRange {
+    });
+    dominoes.push(DominoRange {
         ratio: (6.91..6.91),
         color_range: ColorRange {
-            r: (190..255),
-            g: (20..45),
-            b: (30..40),
+            r: (190..220),
+            g: (35..55),
+            b: (30..50),
         },
         value: 3,
         ..Default::default()
-    }));
-    dominoes.push(DominoPiece::FOUR(DominoRange {
+    });
+    dominoes.push(DominoRange {
         ratio: (6.91..6.91),
         color_range: ColorRange {
-            r: (135..150),
-            g: (45..65),
-            b: (20..40),
+            r: (135..155),
+            g: (65..85),
+            b: (30..50),
         },
         value: 4,
         ..Default::default()
-    }));
-    dominoes.push(DominoPiece::FIVE(DominoRange {
+    });
+    dominoes.push(DominoRange {
         ratio: (6.91..6.91),
         color_range: ColorRange {
-            r: (25..35),
-            g: (60..80),
-            b: (110..130),
+            r: (15..35),
+            g: (65..85),
+            b: (120..160),
         },
         value: 5,
         ..Default::default()
-    }));
-    dominoes.push(DominoPiece::SIX(DominoRange {
+    });
+    dominoes.push(DominoRange {
         ratio: (6.91..6.91),
         color_range: ColorRange {
             r: (200..255),
-            g: (90..125),
-            b: (0..40),
+            g: (110..160),
+            b: (0..50),
         },
         value: 6,
         ..Default::default()
-    }));
-    dominoes.push(DominoPiece::SEVEN(DominoRange {
+    });
+    dominoes.push(DominoRange {
         ratio: (6.91..6.91),
         color_range: ColorRange {
-            r: (160..180),
-            g: (35..50),
-            b: (60..75),
+            r: (160..190),
+            g: (35..70),
+            b: (75..100),
         },
         value: 7,
         ..Default::default()
-    }));
-    dominoes.push(DominoPiece::EIGHT(DominoRange {
+    });
+    dominoes.push(DominoRange {
         ratio: (6.91..6.91),
         color_range: ColorRange {
-            r: (50..75),
-            g: (100..130),
-            b: (100..140),
+            r: (30..60),
+            g: (110..150),
+            b: (90..120),
         },
-        value: 1,
+        value: 8,
         ..Default::default()
-    }));
-    dominoes.push(DominoPiece::NINE(DominoRange {
+    });
+    dominoes.push(DominoRange {
         ratio: (6.91..6.91),
         color_range: ColorRange {
-            r: (50..75),
-            g: (100..130),
-            b: (100..140),
+            r: (75..95),
+            g: (25..55),
+            b: (55..100),
         },
-        value: 1,
+        value: 9,
         ..Default::default()
-    }));
-    dominoes.push(DominoPiece::TEN(DominoRange {
+    });
+    dominoes.push(DominoRange {
         ratio: (1.375..1.375),
         color_range: ColorRange {
             r: (200..255),
-            g: (60..140),
-            b: (0..50),
+            g: (80..120),
+            b: (50..70),
         },
-        value: 1,
+        value: 10,
         ..Default::default()
-    }));
-    dominoes.push(DominoPiece::ELEVEN(DominoRange {
+    });
+    dominoes.push(DominoRange {
         ratio: (6.91..6.91),
         color_range: ColorRange {
-            r: (50..75),
-            g: (100..130),
-            b: (100..140),
+            r: (110..130),
+            g: (35..65),
+            b: (50..85),
         },
-        value: 1,
+        value: 11,
         ..Default::default()
-    }));
-    dominoes.push(DominoPiece::TWELVE(DominoRange {
+    });
+    dominoes.push(DominoRange {
         ratio: (6.91..6.91),
         color_range: ColorRange {
-            r: (50..75),
-            g: (100..130),
-            b: (100..140),
+            r: (130..170),
+            g: (130..170),
+            b: (120..140),
         },
-        value: 1,
+        value: 12,
         ..Default::default()
-    }));
+    });
+
+    // dominoes.push(DominoPiece::ZERO(DominoRange {
+    //     ratio: (1.0..99.0),
+    //     color_range: ColorRange {
+    //         r: (240..240),
+    //         g: (228..228),
+    //         b: (200..200),
+    //     },
+    //     value: 0,
+    //     ..Default::default()
+    // }));
+    // dominoes.push(DominoPiece::ONE(DominoRange {
+    //     ratio: (6.91..6.91),
+    //     color_range: ColorRange {
+    //         r: (50..75),
+    //         g: (100..130),
+    //         b: (100..140),
+    //     },
+    //     value: 1,
+    //     ..Default::default()
+    // }));
+    // dominoes.push(DominoPiece::TWO(DominoRange {
+    //     ratio: (6.91..6.91),
+    //     color_range: ColorRange {
+    //         r: (50..75),
+    //         g: (100..130),
+    //         b: (20..70),
+    //     },
+    //     value: 2,
+    //     ..Default::default()
+    // }));
+    // dominoes.push(DominoPiece::THREE(DominoRange {
+    //     ratio: (6.91..6.91),
+    //     color_range: ColorRange {
+    //         r: (190..255),
+    //         g: (20..45),
+    //         b: (30..40),
+    //     },
+    //     value: 3,
+    //     ..Default::default()
+    // }));
+    // dominoes.push(DominoPiece::FOUR(DominoRange {
+    //     ratio: (6.91..6.91),
+    //     color_range: ColorRange {
+    //         r: (135..150),
+    //         g: (45..65),
+    //         b: (20..40),
+    //     },
+    //     value: 4,
+    //     ..Default::default()
+    // }));
+    // dominoes.push(DominoPiece::FIVE(DominoRange {
+    //     ratio: (6.91..6.91),
+    //     color_range: ColorRange {
+    //         r: (25..35),
+    //         g: (60..80),
+    //         b: (110..130),
+    //     },
+    //     value: 5,
+    //     ..Default::default()
+    // }));
+    // dominoes.push(DominoPiece::SIX(DominoRange {
+    //     ratio: (6.91..6.91),
+    //     color_range: ColorRange {
+    //         r: (200..255),
+    //         g: (90..125),
+    //         b: (0..40),
+    //     },
+    //     value: 6,
+    //     ..Default::default()
+    // }));
+    // dominoes.push(DominoPiece::SEVEN(DominoRange {
+    //     ratio: (6.91..6.91),
+    //     color_range: ColorRange {
+    //         r: (160..180),
+    //         g: (35..50),
+    //         b: (60..85),
+    //     },
+    //     value: 7,
+    //     ..Default::default()
+    // }));
+    // dominoes.push(DominoPiece::EIGHT(DominoRange {
+    //     ratio: (6.91..6.91),
+    //     color_range: ColorRange {
+    //         r: (20..50),
+    //         g: (100..150),
+    //         b: (80..100),
+    //     },
+    //     value: 8,
+    //     ..Default::default()
+    // }));
+    // dominoes.push(DominoPiece::NINE(DominoRange {
+    //     ratio: (6.91..6.91),
+    //     color_range: ColorRange {
+    //         r: (60..80),
+    //         g: (25..45),
+    //         b: (70..90),
+    //     },
+    //     value: 9,
+    //     ..Default::default()
+    // }));
+    // dominoes.push(DominoPiece::TEN(DominoRange {
+    //     ratio: (1.375..1.375),
+    //     color_range: ColorRange {
+    //         r: (200..255),
+    //         g: (80..100),
+    //         b: (15..35),
+    //     },
+    //     value: 10,
+    //     ..Default::default()
+    // }));
+    // dominoes.push(DominoPiece::ELEVEN(DominoRange {
+    //     ratio: (6.91..6.91),
+    //     color_range: ColorRange {
+    //         r: (100..130),
+    //         g: (35..55),
+    //         b: (25..45),
+    //     },
+    //     value: 11,
+    //     ..Default::default()
+    // }));
+    // dominoes.push(DominoPiece::TWELVE(DominoRange {
+    //     ratio: (6.91..6.91),
+    //     color_range: ColorRange {
+    //         r: (130..150),
+    //         g: (115..135),
+    //         b: (80..100),
+    //     },
+    //     value: 12,
+    //     ..Default::default()
+    // }));
 
     return dominoes;
 }
@@ -221,10 +346,29 @@ fn construct_dominoes() -> Vec<DominoPiece> {
 // fn construct_domino_ranges()
 
 fn main() {
-    // let doms = construct_dominoes();
-
     // manipulate_image()
     // count_circles();
+
+    // let domino_pic_path = "dominoes/eval/1-10.jpg";
+    // println!("{}", domino_pic_path); //"dominoes/Screenshot_20210309-204319_Photos~4.jpg"
+    // find_domino(domino_pic_path);
+
+    let folder_path = Path::new("dominoes/eval/");
+    for file in std::fs::read_dir(folder_path).unwrap() {
+        println!("{:?}", file);
+        match file {
+            Ok(x) => {
+                println!("{:?}", x.file_name());
+                // let mut path = Path::new("./dominoes/eval/");
+                let filepath = &folder_path.join(x.file_name().to_str().unwrap());
+                find_domino(filepath.to_str().unwrap());
+            }
+            Err(_) => {
+                println!("No file available");
+            }
+        };
+    }
+
     let domino_pic_path = "dominoes/eval/1-10.jpg";
     println!("{}", domino_pic_path); //"dominoes/Screenshot_20210309-204319_Photos~4.jpg"
     find_domino(domino_pic_path);
@@ -237,8 +381,11 @@ fn main() {
         - find separator black line
         - number of pixels in a row?
     3. determine which halves are what domino numbers
-        - ratio of white to non-white pixels
-        - pixels colors
+        - Domain expert
+            - ratio of white to non-white pixels
+            - pixels colors
+            - bucket pixels using dominoes defined above
+                - search for most likely domino based on values found in pixel buckets?
         - send all pixels of each half to ML algorithm
         - disregard the white color? - probably ML problem
     */
@@ -385,12 +532,13 @@ fn draw_domino_lines(image: &mut DynamicImage, dom_section: &DominoImageSection)
 
 fn find_domino(image_path: &str) {
     // let domino_pic_path = "dominoes/eval/2-3.jpg"; //"dominoes/Screenshot_20210309-204319_Photos~4.jpg"
+    println!("Trying to open: {}", image_path);
     let mut img = image::open(image_path).unwrap();
 
     // println!("{:#?}", &histo);
     // something
-    // let domino = detect_domino_edges(&img);
-    let domino = detect_domino_edges_eval_data(img.clone());
+    let domino = detect_domino_edges(&mut img);
+    // let domino = detect_domino_edges_eval_data(&mut img);
 
     let mut img_clone = img.clone();
     let domino_piece = img_clone.sub_image(
@@ -405,7 +553,8 @@ fn find_domino(image_path: &str) {
     let bottom_piece = img.crop(domino.left, domino.middle, domino.right, domino.bottom);
 
     println!("Top:");
-    count_most_common_pixels(&top_piece);
+    // count_most_common_pixels(&top_piece);
+    count_pixel_ranges(&top_piece);
     count_ratio(&domino_piece, 180);
 
     let domino_piece = img_clone.sub_image(
@@ -416,8 +565,74 @@ fn find_domino(image_path: &str) {
     );
 
     println!("Bottom:");
-    count_most_common_pixels(&bottom_piece);
+    // count_most_common_pixels(&bottom_piece);
+    count_pixel_ranges(&bottom_piece);
     count_ratio(&domino_piece, 180);
+}
+
+fn get_range_bounds(range: &Range<u8>, leeway: u8) -> Range<u8> {
+    // println!("range: {:?}", range);
+    // println!("leeway: {:?}", leeway);
+
+    // println!("range start: {}, range end: {}", range.start, range.end);
+    let range_start = if (range.start as i16 - leeway as i16) > u8::MIN as i16
+        && (range.start as i16 - leeway as i16) < u8::MAX as i16
+    {
+        range.start - leeway
+    } else {
+        0
+    };
+
+    let range_end = if (range.end as i16 + leeway as i16) < u8::MAX as i16
+        && (range.end as i16 + leeway as i16) > u8::MIN as i16
+    {
+        range.end + leeway
+    } else {
+        255
+    };
+
+    return Range {
+        start: range_start,
+        end: range_end,
+    };
+}
+
+fn count_pixel_ranges(img: &DynamicImage) {
+    let doms = construct_dominoes();
+
+    let mut buckets: HashMap<u8, u32> = HashMap::new();
+
+    let median_radius = 10;
+    let testblur = imageproc::filter::median_filter(&img.to_bgra8(), median_radius, median_radius);
+    testblur.save(format!("tests/median_filter.jpg")).unwrap();
+
+    // let mut pixel_histo: HashMap<(u8, u8, u8), u32> = HashMap::new();
+    for pixel in testblur.pixels().into_iter() {
+        let (r, g, b) = (pixel[2], pixel[1], pixel[0]);
+
+        if is_black_pixel((r, g, b), None) || is_white_pixel((r, g, b), None) {
+        } else {
+            for dom_range in doms.iter() {
+                // println!("{:?}", dom_range);
+                // let new_range = ((dom_range.color_range.r.start - dom_range.leeway)..(dom_range.color_range.r.end + dom_range.leeway))
+
+                if (get_range_bounds(&dom_range.color_range.r, dom_range.leeway)).contains(&r)
+                    && get_range_bounds(&dom_range.color_range.g, dom_range.leeway).contains(&g)
+                    && get_range_bounds(&dom_range.color_range.b, dom_range.leeway).contains(&b)
+                {
+                    *buckets.entry(dom_range.value).or_insert(0) += 1;
+                }
+            }
+        }
+    }
+
+    let mut top_n: Vec<(u8, u32)> = buckets
+        .iter()
+        .map(|(&domino_value, &count)| (domino_value, count))
+        .collect();
+    top_n.sort_by(|(_, a), (_, b)| b.cmp(&a));
+
+    println!("Domino buckets:\n{:?}", top_n);
 }
 
 fn count_most_common_pixels(img: &DynamicImage) {
@@ -426,23 +641,26 @@ fn count_most_common_pixels(img: &DynamicImage) {
     map would be better than per channel histogram.
     Would give better exact pixels, which can be used to determine other colors other than white.
      */
-
-    let testblur = imageproc::filter::median_filter(&img.to_bgra8(), 5, 5);
+    let bucket_mod = 5;
+    let median_radius = 10;
+    let testblur = imageproc::filter::median_filter(&img.to_bgra8(), median_radius, median_radius);
     testblur.save(format!("tests/median_filter.jpg")).unwrap();
 
     let mut pixel_histo: HashMap<(u8, u8, u8), u32> = HashMap::new();
-    let bucket_mod = 5;
     for pixel in testblur.pixels().into_iter() {
+        let (r, g, b) = (pixel[2], pixel[1], pixel[0]);
+
         // pixel_histo
         //     .get_mut(&(pixel[0], pixel[1], pixel[2]))
         //     .unwrap() += 1;
-        *pixel_histo
-            .entry((
-                pixel[0] % bucket_mod,
-                pixel[1] % bucket_mod,
-                pixel[2] % bucket_mod,
-            ))
-            .or_insert(0) += 1;
+        // println!("{:?}", (r, g, b));
+        if is_black_pixel((r, g, b), None) == false && is_white_pixel((r, g, b), None) == false {
+            // println!("Adding above");
+            // println!("{:?}", (pixel[0] as u32, pixel[1] as u32, pixel[2] as u32));
+            *pixel_histo
+                .entry((r % bucket_mod, g % bucket_mod, b % bucket_mod))
+                .or_insert(0) += 1;
+        }
     }
 
     let mut top_n: Vec<((u8, u8, u8), u32)> = pixel_histo
@@ -524,12 +742,25 @@ fn histogram(img: &DynamicImage) {
     }
 }
 
-fn is_white_pixel(pixel: Rgba<u8>) -> bool {
-    let white_pixel_threshold = 180;
+fn is_white_pixel((r, g, b): (u8, u8, u8), threshold: Option<u8>) -> bool {
+    let white_pixel_threshold = match threshold {
+        Some(x) => threshold.unwrap(),
+        None => 180,
+    };
 
-    return pixel[0] > white_pixel_threshold
-        && pixel[1] > white_pixel_threshold
-        && pixel[2] > white_pixel_threshold;
+    let result =
+        r > white_pixel_threshold && g > white_pixel_threshold && b > white_pixel_threshold;
+    // println!("is white?: {}", result);
+    return result;
+}
+
+fn is_black_pixel((r, g, b): (u8, u8, u8), threshold: Option<u8>) -> bool {
+    let black_pixel_threshold = match threshold {
+        Some(_) => threshold.unwrap(),
+        None => 60,
+    };
+
+    return r < black_pixel_threshold && g < black_pixel_threshold && b < black_pixel_threshold;
 }
 
 fn count_ratio(top_domino: &SubImage<&mut DynamicImage>, white_pixel_threshold: u8) {
@@ -537,13 +768,13 @@ fn count_ratio(top_domino: &SubImage<&mut DynamicImage>, white_pixel_threshold: 
     let mut non_white = 0;
 
     for (_x, _y, rgb) in top_domino.pixels().into_iter() {
-        if is_white_pixel(rgb) {
+        if is_white_pixel((rgb[0], rgb[1], rgb[2]), None) {
             white_pixels += 1;
         } else {
             non_white += 1;
         }
     }
-    let ratio = (white_pixels as f32 / non_white as f32);
+    let ratio = white_pixels as f32 / non_white as f32;
     println!(
         "White: {}, Non-white: {}, Ratio: {}",
         white_pixels, non_white, &ratio
@@ -643,4 +874,24 @@ fn manipulate_image() {
     bw_proper
         .save(&output_dir.join(format!("testmap_{}.png", filter_high_threshold)))
         .unwrap();
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{is_black_pixel, is_white_pixel};
+
+    #[test]
+    fn test_is_black_pixel() {
+        assert_eq!(is_black_pixel((0, 0, 0), None), true);
+        assert_eq!(is_black_pixel((40, 41, 39), Some(41)), false);
+        assert_eq!(is_black_pixel((39, 20, 39), Some(40)), true);
+    }
+
+    #[test]
+    fn test_is_white_pixel() {
+        assert_eq!(is_white_pixel((180, 180, 180), Some(160)), true);
+        assert_eq!(is_white_pixel((200, 0, 0), Some(199)), false);
+        assert_eq!(is_white_pixel((100, 100, 100), Some(90)), true);
+        assert_eq!(is_white_pixel((255, 255, 255), None), true);
+    }
 }
