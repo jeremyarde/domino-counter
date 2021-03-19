@@ -14,6 +14,7 @@ use image::{
 use imageproc::hough;
 use std::{borrow::Borrow, collections::HashMap, ops::Range, path::Path};
 
+#[derive(Debug)]
 struct DominoImageSection {
     top: u32,
     bottom: u32,
@@ -349,29 +350,30 @@ fn main() {
     // manipulate_image()
     // count_circles();
 
-    // let domino_pic_path = "dominoes/eval/1-10.jpg";
-    // println!("{}", domino_pic_path); //"dominoes/Screenshot_20210309-204319_Photos~4.jpg"
-    // find_domino(domino_pic_path);
+    // let domino_filepath = "dominoes/eval/1-10.jpg";
+    let domino_filepath = "dominoes/IMG-20210311-WA0002.jpg";
+    println!("{}", domino_filepath); //"dominoes/Screenshot_20210309-204319_Photos~4.jpg"
+    find_domino(domino_filepath);
 
-    let folder_path = Path::new("dominoes/eval/");
-    for file in std::fs::read_dir(folder_path).unwrap() {
-        println!("{:?}", file);
-        match file {
-            Ok(x) => {
-                println!("{:?}", x.file_name());
-                // let mut path = Path::new("./dominoes/eval/");
-                let filepath = &folder_path.join(x.file_name().to_str().unwrap());
-                find_domino(filepath.to_str().unwrap());
-            }
-            Err(_) => {
-                println!("No file available");
-            }
-        };
-    }
+    // Reading all files in folder
+    // let folder_path = Path::new("dominoes/eval/");
+    // for file in std::fs::read_dir(folder_path).unwrap() {
+    //     println!("{:?}", file);
+    //     match file {
+    //         Ok(x) => {
+    //             println!("{:?}", x.file_name());
+    //             // let mut path = Path::new("./dominoes/eval/");
+    //             let filepath = &folder_path.join(x.file_name().to_str().unwrap());
 
-    let domino_pic_path = "dominoes/eval/1-10.jpg";
-    println!("{}", domino_pic_path); //"dominoes/Screenshot_20210309-204319_Photos~4.jpg"
-    find_domino(domino_pic_path);
+    //             // find all domino coordinates, send to find_domino?
+
+    //             find_domino(filepath.to_str().unwrap());
+    //         }
+    //         Err(_) => {
+    //             println!("No file available");
+    //         }
+    //     };
+    // }
 
     /*
     overall goals:
@@ -419,7 +421,7 @@ fn detect_domino_edges(image: &mut DynamicImage) -> DominoImageSection {
     let edges: ImageBuffer<Luma<u8>, Vec<u8>> = canny(&gray_img, 70.0, 100.0);
     edges.save("tests/canny_edges.png").unwrap();
 
-    // finding the top of the dominoe
+    // finding the bottom of the domino
     for y in (0..height).rev() {
         let pixel = edges.get_pixel(width / 2, y).to_rgb();
         if pixel[1] == 255 {
@@ -472,6 +474,7 @@ fn detect_domino_edges(image: &mut DynamicImage) -> DominoImageSection {
         middle: middle as u32,
     };
 
+    println!("Results of domino finding: {:?}", result);
     draw_domino_lines(image, &result);
 
     return result;
@@ -483,47 +486,41 @@ fn draw_domino_lines(image: &mut DynamicImage, dom_section: &DominoImageSection)
     // top line
     imageproc::drawing::draw_line_segment_mut(
         image,
-        (0.0, 0.0),
-        (dom_section.right as f32, 0 as f32),
+        (dom_section.left as f32, dom_section.top as f32),
+        (dom_section.right as f32, dom_section.top as f32),
         line_colour,
     );
 
     // bottom line
     imageproc::drawing::draw_line_segment_mut(
         image,
-        (0.0 as f32, dom_section.bottom as f32 - 1.0 as f32),
-        (
-            dom_section.right as f32,
-            dom_section.bottom as f32 - 1.0 as f32,
-        ),
+        (dom_section.left as f32, dom_section.bottom as f32 as f32),
+        (dom_section.right as f32, dom_section.bottom as f32 as f32),
         line_colour,
     );
 
     // left line
     imageproc::drawing::draw_line_segment_mut(
         image,
-        (0.0, 0.0),
-        (0.0, dom_section.bottom as f32),
+        (dom_section.left as f32, dom_section.top as f32),
+        (dom_section.left as f32, dom_section.bottom as f32),
         line_colour,
     );
 
     // right line
     imageproc::drawing::draw_line_segment_mut(
         image,
-        (dom_section.right as f32 - 1.0 as f32, 0.0),
-        (
-            dom_section.right as f32 - 1.0 as f32,
-            dom_section.bottom as f32,
-        ),
+        (dom_section.right as f32 as f32, dom_section.top as f32),
+        (dom_section.right as f32 as f32, dom_section.bottom as f32),
         line_colour,
     );
 
     // middle line
-    let middle_point = (dom_section.bottom / 2) as f32;
+    let middle_point = ((dom_section.bottom - dom_section.top) / 2) as u32 + (dom_section.top);
     imageproc::drawing::draw_line_segment_mut(
         image,
-        (0.0 as f32, middle_point),
-        (dom_section.right as f32, middle_point),
+        (dom_section.left as f32, middle_point as f32),
+        (dom_section.right as f32, middle_point as f32),
         line_colour,
     );
 
@@ -535,8 +532,10 @@ fn find_domino(image_path: &str) {
     println!("Trying to open: {}", image_path);
     let mut img = image::open(image_path).unwrap();
 
-    // println!("{:#?}", &histo);
-    // something
+    if img.height() > img.width() {
+        img = img.rotate270();
+    }
+
     let domino = detect_domino_edges(&mut img);
     // let domino = detect_domino_edges_eval_data(&mut img);
 
