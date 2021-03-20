@@ -411,7 +411,16 @@ fn detect_domino_edges_eval_data(image: DynamicImage) -> DominoImageSection {
     return result;
 }
 
-fn detect_domino_edges(image: &mut DynamicImage) -> DominoImageSection {
+fn detect_inner_domino_edges(
+    image: &mut DynamicImage,
+    dom_section: DominoImageSection,
+) -> Vec<u16> {
+    let result = vec![];
+
+    return result;
+}
+
+fn detect_outer_domino_edges(image: &mut DynamicImage) -> DominoImageSection {
     let height = image.height();
     let width = image.width();
     let mut topedge = 0;
@@ -523,6 +532,34 @@ fn draw_domino_lines(image: &mut DynamicImage, dom_section: &DominoImageSection)
         (dom_section.right as f32, middle_point as f32),
         line_colour,
     );
+    let middle_point = ((dom_section.bottom - dom_section.top) / 2) as u32 + (dom_section.top);
+    imageproc::drawing::draw_line_segment_mut(
+        image,
+        (dom_section.left as f32, (middle_point + 5) as f32),
+        (dom_section.right as f32, (middle_point + 5) as f32),
+        line_colour,
+    );
+    let middle_point = ((dom_section.bottom - dom_section.top) / 2) as u32 + (dom_section.top);
+    imageproc::drawing::draw_line_segment_mut(
+        image,
+        (dom_section.left as f32, (middle_point - 5) as f32),
+        (dom_section.right as f32, (middle_point - 5) as f32),
+        line_colour,
+    );
+
+    // inner edges of dominoes
+    let dom_width = dom_section.right - dom_section.left;
+    let dom_count = 8;
+
+    for dom_num in 0..dom_count {
+        let line_loc_x = (dom_width / 8) * dom_num + dom_section.left;
+        imageproc::drawing::draw_line_segment_mut(
+            image,
+            (line_loc_x as f32, dom_section.top as f32),
+            (line_loc_x as f32, dom_section.bottom as f32),
+            line_colour,
+        );
+    }
 
     image.save("tests/found_squares.png").unwrap();
 }
@@ -536,7 +573,9 @@ fn find_domino(image_path: &str) {
         img = img.rotate270();
     }
 
-    let domino = detect_domino_edges(&mut img);
+    let domino = detect_outer_domino_edges(&mut img);
+
+    let domino_inner_edges = detect_inner_domino_edges(&mut img, domino);
     // let domino = detect_domino_edges_eval_data(&mut img);
 
     let mut img_clone = img.clone();
