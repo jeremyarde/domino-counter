@@ -75,6 +75,22 @@ impl Default for DominoRange {
 //     ELEVEN(DominoRange),
 //     TWELVE(DominoRange),
 // }
+#[derive(Debug)]
+enum DominoPiece {
+    ZERO,
+    ONE,
+    TWO,
+    THREE,
+    FOUR,
+    FIVE,
+    SIX,
+    SEVEN,
+    EIGHT,
+    NINE,
+    TEN,
+    ELEVEN,
+    TWELVE,
+}
 
 fn construct_dominoes() -> Vec<DominoRange> {
     let mut dominoes = vec![];
@@ -353,7 +369,7 @@ fn main() {
     // let domino_filepath = "dominoes/eval/1-10.jpg";
     let domino_filepath = "dominoes/IMG-20210311-WA0002.jpg";
     println!("{}", domino_filepath); //"dominoes/Screenshot_20210309-204319_Photos~4.jpg"
-    find_domino(domino_filepath);
+    find_dominos(domino_filepath);
 
     // Reading all files in folder
     // let folder_path = Path::new("dominoes/eval/");
@@ -393,7 +409,7 @@ fn main() {
     */
 }
 
-fn detect_domino_edges_eval_data(image: DynamicImage) -> DominoImageSection {
+fn detect_domino_edges_eval_data(image: &DynamicImage) -> DominoImageSection {
     let height = image.height();
     let width = image.width();
 
@@ -406,17 +422,44 @@ fn detect_domino_edges_eval_data(image: DynamicImage) -> DominoImageSection {
     };
 
     let mut img_clone = image.clone();
-    draw_domino_lines(&mut img_clone, &result);
+    draw_domino_lines(&mut img_clone, &result, &vec![]);
 
     return result;
 }
 
 fn detect_inner_domino_edges(
     image: &mut DynamicImage,
-    dom_section: DominoImageSection,
-) -> Vec<u16> {
-    let result = vec![];
+    dom_section: &DominoImageSection,
+) -> Vec<u32> {
+    let mut result = vec![];
 
+    // dominos are likely about 1:2 (width:height), so
+    // we should be able to find appropriately
+    let dom_height = dom_section.bottom - dom_section.top;
+    let dom_width = dom_section.right - dom_section.left;
+
+    let num_dominos = (dom_width as f32 / dom_height as f32).round() as i8 * 2;
+    println!("Number of dominoes: {}", num_dominos);
+
+    // inner edges of dominoes
+    let dom_width = dom_section.right - dom_section.left;
+    // let dom_count = 8;
+
+    result = (0..=num_dominos)
+        .into_iter()
+        .map(|x| (dom_width / num_dominos as u32) * x as u32 + dom_section.left)
+        .collect();
+    // for dom_num in 0..dom_count {
+    //     let line_loc_x = (dom_width / 8) * dom_num + dom_section.left;
+    // imageproc::drawing::draw_line_segment_mut(
+    //     image,
+    //     (line_loc_x as f32, dom_section.top as f32),
+    //     (line_loc_x as f32, dom_section.bottom as f32),
+    //     line_colour,
+    // );
+    // }
+
+    println!("result: {:?}", result);
     return result;
 }
 
@@ -484,12 +527,15 @@ fn detect_outer_domino_edges(image: &mut DynamicImage) -> DominoImageSection {
     };
 
     println!("Results of domino finding: {:?}", result);
-    draw_domino_lines(image, &result);
 
     return result;
 }
 
-fn draw_domino_lines(image: &mut DynamicImage, dom_section: &DominoImageSection) {
+fn draw_domino_lines(
+    image: &mut DynamicImage,
+    dom_section: &DominoImageSection,
+    dom_inner_edges: &Vec<u32>,
+) {
     let line_colour = Rgba([122, 255, 0, 1]);
 
     // top line
@@ -547,16 +593,16 @@ fn draw_domino_lines(image: &mut DynamicImage, dom_section: &DominoImageSection)
         line_colour,
     );
 
-    // inner edges of dominoes
-    let dom_width = dom_section.right - dom_section.left;
-    let dom_count = 8;
+    // // inner edges of dominoes
+    // let dom_width = dom_section.right - dom_section.left;
+    // let dom_count = 8;
 
-    for dom_num in 0..dom_count {
-        let line_loc_x = (dom_width / 8) * dom_num + dom_section.left;
+    for inner_edge in dom_inner_edges {
+        // let line_loc_x = (dom_width / 8) * dom_num + dom_section.left;
         imageproc::drawing::draw_line_segment_mut(
             image,
-            (line_loc_x as f32, dom_section.top as f32),
-            (line_loc_x as f32, dom_section.bottom as f32),
+            (*inner_edge as f32, dom_section.top as f32),
+            (*inner_edge as f32, dom_section.bottom as f32),
             line_colour,
         );
     }
@@ -564,48 +610,112 @@ fn draw_domino_lines(image: &mut DynamicImage, dom_section: &DominoImageSection)
     image.save("tests/found_squares.png").unwrap();
 }
 
-fn find_domino(image_path: &str) {
+fn find_dominos(image_path: &str) {
     // let domino_pic_path = "dominoes/eval/2-3.jpg"; //"dominoes/Screenshot_20210309-204319_Photos~4.jpg"
     println!("Trying to open: {}", image_path);
     let mut img = image::open(image_path).unwrap();
 
-    if img.height() > img.width() {
+    // if img.height() > img.width() {
+    //     img = img.rotate270();
+    // }
+
+    let mut domino = detect_outer_domino_edges(&mut img);
+
+    if domino.top - domino.bottom > domino.right - domino.left {
         img = img.rotate270();
+        domino = detect_outer_domino_edges(&mut img);
     }
 
-    let domino = detect_outer_domino_edges(&mut img);
-
-    let domino_inner_edges = detect_inner_domino_edges(&mut img, domino);
+    let domino_inner_edges = detect_inner_domino_edges(&mut img, &domino);
     // let domino = detect_domino_edges_eval_data(&mut img);
 
-    let mut img_clone = img.clone();
-    let domino_piece = img_clone.sub_image(
-        domino.left,
-        domino.top,
-        domino.right - domino.left,
-        domino.middle - domino.top,
-    );
+    // draw all of the domino edges
+    draw_domino_lines(&mut img, &domino, &domino_inner_edges);
 
-    // let top_piece = img.clone();
-    let top_piece = img.crop(domino.left, domino.top, domino.right, domino.middle);
-    let bottom_piece = img.crop(domino.left, domino.middle, domino.right, domino.bottom);
+    // for each domino found, do the following
+    for dom_num in 1..domino_inner_edges.len() {
+        let left = domino_inner_edges[dom_num - 1];
+        let right = domino_inner_edges[dom_num];
 
-    println!("Top:");
-    // count_most_common_pixels(&top_piece);
-    count_pixel_ranges(&top_piece);
-    count_ratio(&domino_piece, 180);
+        let mut img_clone = img.clone();
+        // let domino_piece =
+        // img_clone.sub_image(left, domino.top, right - left, domino.middle - domino.top);
 
-    let domino_piece = img_clone.sub_image(
-        domino.left as u32,
-        domino.middle as u32,
-        domino.right - domino.left,
-        domino.bottom - domino.middle,
-    );
+        // let top_piece = img.clone();
+        let top_piece = img.crop(left, domino.top, right - left, domino.middle - domino.top);
+        let bottom_piece = img.crop(
+            left,
+            domino.middle,
+            right - left,
+            domino.bottom - domino.middle,
+        );
+        top_piece.save("tests/top.png").unwrap();
+        bottom_piece.save("tests/bottom.png").unwrap();
 
-    println!("Bottom:");
-    // count_most_common_pixels(&bottom_piece);
-    count_pixel_ranges(&bottom_piece);
-    count_ratio(&domino_piece, 180);
+        println!("Top:");
+        // count_most_common_pixels(&top_piece);
+        let domino_buckets = count_pixel_ranges(&top_piece);
+        let ratio = count_ratio(&top_piece, 180);
+
+        let top_domino: DominoPiece = guess_domino(&domino_buckets, &ratio);
+
+        println!("Bottom:");
+        // count_most_common_pixels(&bottom_piece);
+        count_pixel_ranges(&bottom_piece);
+        count_ratio(&bottom_piece, 180);
+        println!("Done analyzing.");
+    }
+
+    // let mut img_clone = img.clone();
+    // let domino_piece = img_clone.sub_image(
+    //     domino.left,
+    //     domino.top,
+    //     domino.right - domino.left,
+    //     domino.middle - domino.top,
+    // );
+
+    // // let top_piece = img.clone();
+    // let top_piece = img.crop(domino.left, domino.top, domino.right, domino.middle);
+    // let bottom_piece = img.crop(domino.left, domino.middle, domino.right, domino.bottom);
+
+    // println!("Top:");
+    // // count_most_common_pixels(&top_piece);
+    // count_pixel_ranges(&top_piece);
+    // count_ratio(&domino_piece, 180);
+
+    // let domino_piece = img_clone.sub_image(
+    //     domino.left as u32,
+    //     domino.middle as u32,
+    //     domino.right - domino.left,
+    //     domino.bottom - domino.middle,
+    // );
+
+    // println!("Bottom:");
+    // // count_most_common_pixels(&bottom_piece);
+    // count_pixel_ranges(&bottom_piece);
+    // count_ratio(&domino_piece, 180);
+}
+
+fn guess_domino(buckets: &Vec<(u8, u32)>, ratio: &f32) -> DominoPiece {
+    let guessed_piece = DominoPiece::ZERO;
+
+    // choose based on ratio
+    let number: u32 = match ratio {
+        1.0..=1.1 => 9,
+        1.55..=1.65 => 10,
+        1.65..=1.70 => 7,
+        1.70..=1.85 => 11,
+        2.0..=2.12 => 10,
+        2.12..=2.2 => 5, // also 12
+        2.7..=2.85 => 3,
+        3.0..=3.15 => 2,
+        _ => {
+            println!("Could not find, default to 0");
+            0
+        }
+    };
+
+    return guessed_piece;
 }
 
 fn get_range_bounds(range: &Range<u8>, leeway: u8) -> Range<u8> {
@@ -635,7 +745,7 @@ fn get_range_bounds(range: &Range<u8>, leeway: u8) -> Range<u8> {
     };
 }
 
-fn count_pixel_ranges(img: &DynamicImage) {
+fn count_pixel_ranges(img: &DynamicImage) -> Vec<(u8, u32)> {
     let doms = construct_dominoes();
 
     let mut buckets: HashMap<u8, u32> = HashMap::new();
@@ -671,6 +781,7 @@ fn count_pixel_ranges(img: &DynamicImage) {
     top_n.sort_by(|(_, a), (_, b)| b.cmp(&a));
 
     println!("Domino buckets:\n{:?}", top_n);
+    return top_n;
 }
 
 fn count_most_common_pixels(img: &DynamicImage) {
@@ -801,7 +912,7 @@ fn is_black_pixel((r, g, b): (u8, u8, u8), threshold: Option<u8>) -> bool {
     return r < black_pixel_threshold && g < black_pixel_threshold && b < black_pixel_threshold;
 }
 
-fn count_ratio(top_domino: &SubImage<&mut DynamicImage>, white_pixel_threshold: u8) {
+fn count_ratio(top_domino: &DynamicImage, white_pixel_threshold: u8) -> f32 {
     let mut white_pixels = 0;
     let mut non_white = 0;
 
@@ -818,21 +929,7 @@ fn count_ratio(top_domino: &SubImage<&mut DynamicImage>, white_pixel_threshold: 
         white_pixels, non_white, &ratio
     );
 
-    let number: u32 = match ratio {
-        1.0..=1.1 => 9,
-        1.55..=1.65 => 10,
-        1.65..=1.70 => 7,
-        1.70..=1.85 => 11,
-        2.0..=2.12 => 10,
-        2.12..=2.2 => 5, // also 12
-        2.7..=2.85 => 3,
-        3.0..=3.15 => 2,
-        _ => {
-            println!("Could not find, default to 0");
-            0
-        }
-    };
-    println!("Found number: {}", number);
+    return ratio;
 }
 
 fn manipulate_image() {
@@ -931,5 +1028,11 @@ mod tests {
         assert_eq!(is_white_pixel((200, 0, 0), Some(199)), false);
         assert_eq!(is_white_pixel((100, 100, 100), Some(90)), true);
         assert_eq!(is_white_pixel((255, 255, 255), None), true);
+    }
+
+    #[test]
+    fn test_rounding() {
+        assert!((8.1 as f32).round() as i32 == 8);
+        assert!((7.9 as f32).round() as i32 == 8);
     }
 }
