@@ -363,6 +363,23 @@ fn construct_dominoes() -> Vec<DominoRange> {
 // fn construct_domino_ranges()
 
 fn main() {
+    /*
+    cli todos:
+    - image (path)
+    - domino coords
+    - domino orientation
+
+    misc todos:
+    - loading domino colors from config
+    - setting/update domino colors
+    - better background detection
+    - better domino detection - ML?
+        - position
+        - color
+
+
+     */
+
     // manipulate_image()
     // count_circles();
 
