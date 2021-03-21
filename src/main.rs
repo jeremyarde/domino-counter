@@ -367,7 +367,9 @@ fn main() {
     // count_circles();
 
     // let domino_filepath = "dominoes/eval/1-10.jpg";
-    let domino_filepath = "dominoes/IMG-20210311-WA0002.jpg";
+    // let domino_filepath = "dominoes/IMG-20210311-WA0002.jpg";
+    let domino_filepath = "dominoes/IMG-20210306-WA0000.jpg";
+
     println!("{}", domino_filepath); //"dominoes/Screenshot_20210309-204319_Photos~4.jpg"
     find_dominos(domino_filepath);
 
@@ -449,15 +451,6 @@ fn detect_inner_domino_edges(
         .into_iter()
         .map(|x| (dom_width / num_dominos as u32) * x as u32 + dom_section.left)
         .collect();
-    // for dom_num in 0..dom_count {
-    //     let line_loc_x = (dom_width / 8) * dom_num + dom_section.left;
-    // imageproc::drawing::draw_line_segment_mut(
-    //     image,
-    //     (line_loc_x as f32, dom_section.top as f32),
-    //     (line_loc_x as f32, dom_section.bottom as f32),
-    //     line_colour,
-    // );
-    // }
 
     println!("result: {:?}", result);
     return result;
@@ -612,21 +605,15 @@ fn draw_domino_lines(
 
 fn find_dominos(image_path: &str) {
     let mut total_value = 0;
-    // let domino_pic_path = "dominoes/eval/2-3.jpg"; //"dominoes/Screenshot_20210309-204319_Photos~4.jpg"
+
     println!("Trying to open: {}", image_path);
     let mut img = image::open(image_path).unwrap();
 
-    // if img.height() > img.width() {
-    //     img = img.rotate270();
-    // }
-
-    let mut domino = detect_outer_domino_edges(&mut img);
-
-    // modifying the picture orientation just in case...
-    if domino.bottom - domino.top > domino.right - domino.left {
+    // Always landscape
+    if img.height() > img.width() {
         img = img.rotate270();
-        domino = detect_outer_domino_edges(&mut img);
     }
+    let domino = detect_outer_domino_edges(&mut img);
 
     let domino_inner_edges = detect_inner_domino_edges(&mut img, &domino);
     // let domino = detect_domino_edges_eval_data(&mut img);
