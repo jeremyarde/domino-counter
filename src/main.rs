@@ -611,6 +611,7 @@ fn draw_domino_lines(
 }
 
 fn find_dominos(image_path: &str) {
+    let mut total_value = 0;
     // let domino_pic_path = "dominoes/eval/2-3.jpg"; //"dominoes/Screenshot_20210309-204319_Photos~4.jpg"
     println!("Trying to open: {}", image_path);
     let mut img = image::open(image_path).unwrap();
@@ -621,7 +622,8 @@ fn find_dominos(image_path: &str) {
 
     let mut domino = detect_outer_domino_edges(&mut img);
 
-    if domino.top - domino.bottom > domino.right - domino.left {
+    // modifying the picture orientation just in case...
+    if domino.bottom - domino.top > domino.right - domino.left {
         img = img.rotate270();
         domino = detect_outer_domino_edges(&mut img);
     }
@@ -649,22 +651,32 @@ fn find_dominos(image_path: &str) {
             right - left,
             domino.bottom - domino.middle,
         );
-        top_piece.save("tests/top.png").unwrap();
-        bottom_piece.save("tests/bottom.png").unwrap();
+        // top_piece.save("tests/top.png").unwrap();
+        // bottom_piece.save("tests/bottom.png").unwrap();
 
         println!("Top:");
         // count_most_common_pixels(&top_piece);
-        let domino_buckets = count_pixel_ranges(&top_piece);
-        let ratio = count_ratio(&top_piece, 180);
-
-        let top_domino: DominoPiece = guess_domino(&domino_buckets, &ratio);
+        let top_domino_buckets = count_pixel_ranges(&top_piece);
+        let top_ratio = count_ratio(&top_piece, 180);
 
         println!("Bottom:");
         // count_most_common_pixels(&bottom_piece);
-        count_pixel_ranges(&bottom_piece);
-        count_ratio(&bottom_piece, 180);
+        let bottom_domino_buckets = count_pixel_ranges(&bottom_piece);
+        let bottom_ratio = count_ratio(&bottom_piece, 180);
+
+        let top_domino: u8 = guess_domino(&top_domino_buckets, &top_ratio);
+        let bottom_domino: u8 = guess_domino(&bottom_domino_buckets, &bottom_ratio);
+
+        if top_domino == 0 && bottom_domino == 0 {
+            total_value += 50;
+        } else {
+            total_value += top_domino + bottom_domino;
+        }
+
         println!("Done analyzing.");
     }
+
+    println!("Finished counting! Results: {}", total_value);
 
     // let mut img_clone = img.clone();
     // let domino_piece = img_clone.sub_image(
@@ -696,26 +708,39 @@ fn find_dominos(image_path: &str) {
     // count_ratio(&domino_piece, 180);
 }
 
-fn guess_domino(buckets: &Vec<(u8, u32)>, ratio: &f32) -> DominoPiece {
-    let guessed_piece = DominoPiece::ZERO;
+fn guess_domino(buckets: &Vec<(u8, u32)>, ratio: &f32) -> u8 {
+    let count_threshold = 50;
 
-    // choose based on ratio
-    let number: u32 = match ratio {
-        1.0..=1.1 => 9,
-        1.55..=1.65 => 10,
-        1.65..=1.70 => 7,
-        1.70..=1.85 => 11,
-        2.0..=2.12 => 10,
-        2.12..=2.2 => 5, // also 12
-        2.7..=2.85 => 3,
-        3.0..=3.15 => 2,
-        _ => {
-            println!("Could not find, default to 0");
-            0
+    let guessed_value = match buckets.first() {
+        Some((value, count)) => {
+            if count > &count_threshold {
+                *value
+            } else {
+                let number: u8 = match ratio {
+                    1.0..=1.1 => 9,
+                    1.35..=1.65 => 10,
+                    1.65..=1.70 => 7,
+                    1.70..=1.85 => 11,
+                    1.85..=1.99 => 6,
+                    2.0..=2.12 => 10,
+                    2.12..=2.2 => 5, // also 12
+                    2.7..=2.99 => 3,
+                    3.15..=3.7 => 4,
+                    4.0..=4.99 => 2,
+                    5.0..=6.0 => 1,
+                    8.0..=99.99 => 0,
+                    _ => {
+                        println!("Could not find, default to 0");
+                        0
+                    }
+                };
+                number
+            }
         }
+        None => 0,
     };
 
-    return guessed_piece;
+    return guessed_value;
 }
 
 fn get_range_bounds(range: &Range<u8>, leeway: u8) -> Range<u8> {
