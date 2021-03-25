@@ -384,9 +384,10 @@ fn main() {
     // count_circles();
 
     // let domino_filepath = "dominoes/eval/1-10.jpg";
-    // let domino_filepath = "dominoes/IMG-20210311-WA0002.jpg";
-    let domino_filepath = "dominoes/IMG-20210306-WA0000.jpg";
-
+    let domino_filepath = "dominoes/IMG-20210311-WA0002.jpg"; /* 148 */
+    // let domino_filepath = "dominoes/IMG-20210306-WA0000.jpg"; // double domino line
+    // let domino_filepath = "dominoes/IMG-20210324-WA0000.jpg"; /* 73 */
+    // let domino_filepath = "dominoes/IMG-20210324-WA0002_landscape.jpg"; /* 54 */
     println!("{}", domino_filepath); //"dominoes/Screenshot_20210309-204319_Photos~4.jpg"
     find_dominos(domino_filepath);
 
@@ -457,7 +458,7 @@ fn detect_inner_domino_edges(
     let dom_height = dom_section.bottom - dom_section.top;
     let dom_width = dom_section.right - dom_section.left;
 
-    let num_dominos = (dom_width as f32 / dom_height as f32).round() as i8 * 2;
+    let num_dominos = ((dom_width as f32 / dom_height as f32) * 2.0).round() as u8;
     println!("Number of dominoes: {}", num_dominos);
 
     // inner edges of dominoes
@@ -474,6 +475,7 @@ fn detect_inner_domino_edges(
 }
 
 fn detect_outer_domino_edges(image: &mut DynamicImage) -> DominoImageSection {
+    let pixels: Vec<i32> = vec![-10, -5, 0, 5, 10];
     let height = image.height();
     let width = image.width();
     let mut topedge = 0;
@@ -485,18 +487,27 @@ fn detect_outer_domino_edges(image: &mut DynamicImage) -> DominoImageSection {
 
     // finding the bottom of the domino
     for y in (0..height).rev() {
-        let pixel = edges.get_pixel(width / 2, y).to_rgb();
-        if pixel[1] == 255 {
+        let pixel_sample: Vec<Rgb<u8>> = pixels
+            .iter()
+            .map(|x| edges.get_pixel((width as i32 / 2 + x) as u32, y).to_rgb())
+            .collect();
+
+        if pixel_sample.iter().any(|x| x[0] == 255) {
             println!("Found bottom edge at {}", y);
             bottomedge = y;
             break;
         }
     }
 
+    // find top
     for y in 0..height {
-        let pixel = edges.get_pixel(width / 2, y).to_rgb();
-        if pixel[1] == 255 {
-            println!("Found top edge at {}", y);
+        let pixel_sample: Vec<Rgb<u8>> = pixels
+            .iter()
+            .map(|x| edges.get_pixel((width as i32 / 2 + x) as u32, y).to_rgb())
+            .collect();
+
+        if pixel_sample.iter().any(|x| x[0] == 255) {
+            println!("Found bottom edge at {}", y);
             topedge = y;
             break;
         }
@@ -508,20 +519,41 @@ fn detect_outer_domino_edges(image: &mut DynamicImage) -> DominoImageSection {
     let mut left = 0;
     let mut right = 0;
 
-    for x in 0..width {
-        let pixel = edges.get_pixel(x, middle as u32).to_rgb();
-        if pixel[1] == 255 {
-            println!("Found left edge at {}", x);
-            left = x;
+    for width_x in 0..width {
+        // let pixel = edges.get_pixel(x, middle as u32).to_rgb();
+        // if pixel[1] == 255 {
+        //     println!("Found left edge at {}", x);
+        //     left = x;
+        //     break;
+        // }
+
+        let pixel_sample: Vec<Rgb<u8>> = pixels
+            .iter()
+            .map(|x| edges.get_pixel(width_x, middle as u32).to_rgb())
+            .collect();
+
+        if pixel_sample.iter().any(|x| x[0] == 255) {
+            println!("Found bottom edge at {}", width_x);
+            left = width_x;
             break;
         }
     }
 
-    for x in (0..width).rev() {
-        let pixel = edges.get_pixel(x, middle as u32).to_rgb();
-        if pixel[1] == 255 {
-            println!("Found right edge at {}", x);
-            right = x;
+    for width_x in (0..width).rev() {
+        // let pixel = edges.get_pixel(x, middle as u32).to_rgb();
+        // if pixel[1] == 255 {
+        //     println!("Found right edge at {}", x);
+        //     right = x;
+        //     break;
+        // }
+        let pixel_sample: Vec<Rgb<u8>> = pixels
+            .iter()
+            .map(|x| edges.get_pixel(width_x, middle as u32).to_rgb())
+            .collect();
+
+        if pixel_sample.iter().any(|x| x[0] == 255) {
+            println!("Found bottom edge at {}", width_x);
+            right = width_x;
             break;
         }
     }
@@ -621,7 +653,8 @@ fn draw_domino_lines(
 }
 
 fn find_dominos(image_path: &str) {
-    let mut total_value = 0;
+    let mut dominos_found: Vec<(u8, u8)> = vec![];
+    let mut total_value: u32 = 0;
 
     println!("Trying to open: {}", image_path);
     let mut img = image::open(image_path).unwrap();
@@ -674,10 +707,16 @@ fn find_dominos(image_path: &str) {
         if top_domino == 0 && bottom_domino == 0 {
             total_value += 50;
         } else {
-            total_value += top_domino + bottom_domino;
+            total_value += (top_domino + bottom_domino) as u32;
         }
 
+        dominos_found.push((top_domino, bottom_domino));
+
         println!("Done analyzing.");
+    }
+
+    for (dominos_top, dominos_bottom) in dominos_found.iter() {
+        println!("Domino: [{}/{}]", dominos_top, dominos_bottom);
     }
 
     println!("Finished counting! Results: {}", total_value);
@@ -713,7 +752,7 @@ fn find_dominos(image_path: &str) {
 }
 
 fn guess_domino(buckets: &Vec<(u8, u32)>, ratio: &f32) -> u8 {
-    let count_threshold = 50;
+    let count_threshold = 200;
 
     let guessed_value = match buckets.first() {
         Some((value, count)) => {
