@@ -499,6 +499,13 @@ fn detect_outer_domino_edges(image: &mut DynamicImage) -> DominoImageSection {
         }
     }
 
+    let test_bottom_edge = find_edge(
+        (height as u32, 0),
+        // height..0,
+        &edges,
+        Direction::Vertical,
+    );
+
     // find top
     for y in 0..height {
         let pixel_sample: Vec<Rgb<u8>> = pixels
@@ -520,19 +527,15 @@ fn detect_outer_domino_edges(image: &mut DynamicImage) -> DominoImageSection {
     let mut right = 0;
 
     for width_x in 0..width {
-        // let pixel = edges.get_pixel(x, middle as u32).to_rgb();
-        // if pixel[1] == 255 {
-        //     println!("Found left edge at {}", x);
-        //     left = x;
-        //     break;
-        // }
-
         let pixel_sample: Vec<Rgb<u8>> = pixels
             .iter()
             .map(|x| edges.get_pixel(width_x, middle as u32).to_rgb())
             .collect();
 
-        if pixel_sample.iter().any(|x| x[0] == 255) {
+        if pixel_sample
+            .iter()
+            .any(|x| is_white_pixel((x[0], x[1], x[2]), None))
+        {
             println!("Found bottom edge at {}", width_x);
             left = width_x;
             break;
@@ -571,6 +574,49 @@ fn detect_outer_domino_edges(image: &mut DynamicImage) -> DominoImageSection {
     println!("Results of domino finding: {:?}", result);
 
     return result;
+}
+
+enum Direction {
+    Horizontal,
+    Vertical,
+}
+
+fn find_edge(
+    (start, end): (u32, u32),
+    // range: Range<u32>,
+    edge_image: &ImageBuffer<Luma<u8>, Vec<u8>>,
+    direction: Direction,
+) -> Option<u32> {
+    let mut found_edge: Option<u32> = None;
+    let pixels: Vec<i32> = vec![-10, -5, 0, 5, 10];
+
+    for pixel_location in (start..end).into_iter() {
+        // for pixel_location in range {
+        println!("What is happening");
+        let pixel_sample: Vec<Rgb<u8>> = match direction {
+            Direction::Vertical => {
+                let middle = edge_image.height() / 2;
+                pixels
+                    .iter()
+                    .map(|x| edge_image.get_pixel(pixel_location, middle as u32).to_rgb())
+                    .collect()
+            }
+            Direction::Horizontal => {
+                let middle = edge_image.width() / 2;
+                pixels
+                    .iter()
+                    .map(|x| edge_image.get_pixel(middle, pixel_location).to_rgb())
+                    .collect()
+            }
+        };
+
+        if pixel_sample.iter().any(|x| x[0] == 255) {
+            println!("Found bottom edge at {}", pixel_location);
+            found_edge = Some(pixel_location);
+            break;
+        }
+    }
+    return found_edge;
 }
 
 fn draw_domino_lines(
@@ -977,7 +1023,7 @@ fn is_black_pixel((r, g, b): (u8, u8, u8), threshold: Option<u8>) -> bool {
         None => 60,
     };
 
-    return r < black_pixel_threshold && g < black_pixel_threshold && b < black_pixel_threshold;
+    r < black_pixel_threshold && g < black_pixel_threshold && b < black_pixel_threshold
 }
 
 fn count_ratio(top_domino: &DynamicImage, white_pixel_threshold: u8) -> f32 {
@@ -997,7 +1043,7 @@ fn count_ratio(top_domino: &DynamicImage, white_pixel_threshold: u8) -> f32 {
         white_pixels, non_white, &ratio
     );
 
-    return ratio;
+    ratio
 }
 
 fn manipulate_image() {
