@@ -230,9 +230,9 @@ fn main() {
     // count_circles();
 
     // let domino_filepath = "dominoes/eval/1-10.jpg";
-    let domino_filepath = "dominoes/IMG-20210311-WA0002.jpg"; /* 148 */
+    // let domino_filepath = "dominoes/IMG-20210311-WA0002.jpg"; /* 148 */
     // let domino_filepath = "dominoes/IMG-20210306-WA0000.jpg"; // double domino line
-    // let domino_filepath = "dominoes/IMG-20210324-WA0000.jpg"; /* 73 */
+    let domino_filepath = "dominoes/IMG-20210324-WA0000.jpg"; /* 73 */
     // let domino_filepath = "dominoes/IMG-20210324-WA0002_landscape.jpg"; /* 54 */
     println!("{}", domino_filepath); //"dominoes/Screenshot_20210309-204319_Photos~4.jpg"
     find_dominos(domino_filepath);
@@ -297,7 +297,7 @@ fn detect_inner_domino_edges(
     _image: &mut DynamicImage,
     dom_section: &DominoImageSection,
 ) -> Vec<u32> {
-    let mut result = vec![];
+    // let mut result = vec![];
 
     // dominos are likely about 1:2 (width:height), so
     // we should be able to find appropriately
@@ -311,7 +311,7 @@ fn detect_inner_domino_edges(
     let dom_width = dom_section.right - dom_section.left;
     // let dom_count = 8;
 
-    result = (0..=num_dominos)
+    let result = (0..=num_dominos)
         .into_iter()
         .map(|x| (dom_width / num_dominos as u32) * x as u32 + dom_section.left)
         .collect();
@@ -327,12 +327,20 @@ fn detect_outer_domino_edges(image: &mut DynamicImage) -> DominoImageSection {
     let mut topedge = 0;
     let mut bottomedge = 0;
 
+    let mut domino_image_section = DominoImageSection {
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        middle: 0,
+    };
+
     let gray_img = image.grayscale().as_mut_luma8().unwrap().clone();
     let edges: ImageBuffer<Luma<u8>, Vec<u8>> = canny(&gray_img, 70.0, 100.0);
     edges.save("tests/canny_edges.png").unwrap();
 
     // finding the bottom of the domino
-    bottomedge = find_edge(
+    domino_image_section.bottom = find_edge(
         (0..height as u32).into_iter().rev(),
         // height..0,
         &edges,
@@ -340,45 +348,34 @@ fn detect_outer_domino_edges(image: &mut DynamicImage) -> DominoImageSection {
     );
 
     // find top
-    topedge = find_edge(
+    domino_image_section.top = find_edge(
         (0..height as u32).into_iter(),
         // height..0,
         &edges,
         Direction::Vertical,
     );
 
-    // instead of this, we can find X consecutive pixels that are "black" (less than 40-50) (40,40,40)
-    let middle: f32 = ((bottomedge - topedge) / 2 + topedge) as f32;
-
-    let mut left = 0;
-    let mut right = 0;
-
-    left = find_edge(
+    domino_image_section.left = find_edge(
         (0..width as u32).into_iter(),
         // height..0,
         &edges,
         Direction::Horizontal,
     );
-    right = find_edge(
+    domino_image_section.right = find_edge(
         (0..width as u32).into_iter().rev(),
         // height..0,
         &edges,
         Direction::Horizontal,
     );
 
+    domino_image_section.middle = ((domino_image_section.bottom - domino_image_section.top) / 2
+        + domino_image_section.top) as u32;
+
     // lines_image.save("tests/found_squares.png").unwrap();
 
-    let result = DominoImageSection {
-        top: topedge,
-        bottom: bottomedge,
-        left,
-        right,
-        middle: middle as u32,
-    };
+    println!("Results of domino finding: {:?}", domino_image_section);
 
-    println!("Results of domino finding: {:?}", result);
-
-    result
+    domino_image_section
 }
 
 enum Direction {
@@ -395,11 +392,6 @@ fn find_edge(
     let mut found_edge: u32 = 0;
     let pixels: Vec<i32> = vec![-10, -5, 0, 5, 10];
 
-    // let mut iterator = range;
-    // if reverse == true {
-    //     iterator = range.rev().into_iter();
-    // }
-    // println!("start: {}, end: {}", start, end);
     for pixel_location in iterator {
         // for pixel_location in range {
         let pixel_sample: Vec<Rgb<u8>> = match direction {
@@ -425,7 +417,6 @@ fn find_edge(
 
         if pixel_sample.iter().any(|x| x[0] == 255) {
             println!("Found bottom edge at {}", pixel_location);
-            // found_edge = Some(pixel_location as u32);
             found_edge = pixel_location as u32;
             break;
         }
@@ -495,12 +486,7 @@ fn draw_domino_lines(
         line_colour,
     );
 
-    // // inner edges of dominoes
-    // let dom_width = dom_section.right - dom_section.left;
-    // let dom_count = 8;
-
     for inner_edge in dom_inner_edges {
-        // let line_loc_x = (dom_width / 8) * dom_num + dom_section.left;
         imageproc::drawing::draw_line_segment_mut(
             image,
             (*inner_edge as f32, dom_section.top as f32),
@@ -537,10 +523,7 @@ fn find_dominos(image_path: &str) {
         let right = domino_inner_edges[dom_num];
 
         let _img_clone = img.clone();
-        // let domino_piece =
-        // img_clone.sub_image(left, domino.top, right - left, domino.middle - domino.top);
 
-        // let top_piece = img.clone();
         let top_piece = img.crop(left, domino.top, right - left, domino.middle - domino.top);
         let bottom_piece = img.crop(
             left,
@@ -580,35 +563,6 @@ fn find_dominos(image_path: &str) {
     }
 
     println!("Finished counting! Results: {}", total_value);
-
-    // let mut img_clone = img.clone();
-    // let domino_piece = img_clone.sub_image(
-    //     domino.left,
-    //     domino.top,
-    //     domino.right - domino.left,
-    //     domino.middle - domino.top,
-    // );
-
-    // // let top_piece = img.clone();
-    // let top_piece = img.crop(domino.left, domino.top, domino.right, domino.middle);
-    // let bottom_piece = img.crop(domino.left, domino.middle, domino.right, domino.bottom);
-
-    // println!("Top:");
-    // // count_most_common_pixels(&top_piece);
-    // count_pixel_ranges(&top_piece);
-    // count_ratio(&domino_piece, 180);
-
-    // let domino_piece = img_clone.sub_image(
-    //     domino.left as u32,
-    //     domino.middle as u32,
-    //     domino.right - domino.left,
-    //     domino.bottom - domino.middle,
-    // );
-
-    // println!("Bottom:");
-    // // count_most_common_pixels(&bottom_piece);
-    // count_pixel_ranges(&bottom_piece);
-    // count_ratio(&domino_piece, 180);
 }
 
 fn guess_domino(buckets: &[(u8, u32)], ratio: &f32) -> u8 {
@@ -619,24 +573,6 @@ fn guess_domino(buckets: &[(u8, u32)], ratio: &f32) -> u8 {
             if count > &count_threshold {
                 *value
             } else {
-                // let number: u8 = match ratio {
-                //     1.0..=1.1 => 9,
-                //     1.35..=1.65 => 10,
-                //     1.65..=1.70 => 7,
-                //     1.70..=1.85 => 11,
-                //     1.85..=1.99 => 6,
-                //     2.0..=2.12 => 10,
-                //     2.12..=2.2 => 5, // also 12
-                //     2.7..=2.99 => 3,
-                //     3.15..=3.7 => 4,
-                //     4.0..=4.99 => 2,
-                //     5.0..=6.0 => 1,
-                //     8.0..=99.99 => 0,
-                //     _ => {
-                //         println!("Could not find, default to 0");
-                //         0
-                //     }
-                // };
                 0
             }
         }
@@ -647,10 +583,6 @@ fn guess_domino(buckets: &[(u8, u32)], ratio: &f32) -> u8 {
 }
 
 fn get_range_bounds(range: &Range<u8>, leeway: u8) -> Range<u8> {
-    // println!("range: {:?}", range);
-    // println!("leeway: {:?}", leeway);
-
-    // println!("range start: {}, range end: {}", range.start, range.end);
     let range_start = if (range.start as i16 - leeway as i16) > u8::MIN as i16
         && (range.start as i16 - leeway as i16) < u8::MAX as i16
     {
@@ -689,9 +621,6 @@ fn count_pixel_ranges(img: &DynamicImage) -> Vec<(u8, u32)> {
         if is_black_pixel((r, g, b), None) || is_white_pixel((r, g, b), None) {
         } else {
             for dom_range in doms.iter() {
-                // println!("{:?}", dom_range);
-                // let new_range = ((dom_range.color_range.r.start - dom_range.leeway)..(dom_range.color_range.r.end + dom_range.leeway))
-
                 if (get_range_bounds(&dom_range.color_range.r, dom_range.leeway)).contains(&r)
                     && get_range_bounds(&dom_range.color_range.g, dom_range.leeway).contains(&g)
                     && get_range_bounds(&dom_range.color_range.b, dom_range.leeway).contains(&b)
@@ -727,13 +656,7 @@ fn count_most_common_pixels(img: &DynamicImage) {
     for pixel in testblur.pixels().into_iter() {
         let (r, g, b) = (pixel[2], pixel[1], pixel[0]);
 
-        // pixel_histo
-        //     .get_mut(&(pixel[0], pixel[1], pixel[2]))
-        //     .unwrap() += 1;
-        // println!("{:?}", (r, g, b));
         if !is_black_pixel((r, g, b), None) && !is_white_pixel((r, g, b), None) {
-            // println!("Adding above");
-            // println!("{:?}", (pixel[0] as u32, pixel[1] as u32, pixel[2] as u32));
             *pixel_histo
                 .entry((r % bucket_mod, g % bucket_mod, b % bucket_mod))
                 .or_insert(0) += 1;
