@@ -210,6 +210,11 @@ fn construct_dominoes() -> Vec<DominoRange> {
 
 fn main() {
     /*
+    todo:
+    - wasm compatible
+        - client side
+        - sending photos via wasm to rust:
+        <https://www.reddit.com/r/rust/comments/czn7qm/sending_an_image_from_js_to_rust_wasm/>
     cli todos:
     - image (path)
     - domino coords
@@ -222,7 +227,6 @@ fn main() {
     - better domino detection - ML?
         - position
         - color
-
 
      */
 
