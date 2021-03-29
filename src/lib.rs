@@ -1,11 +1,10 @@
 extern crate image;
 extern crate imageproc;
-use core::f32;
-use imageproc::edges::canny;
-
+// use core::f32;
 use image::{DynamicImage, GenericImageView, ImageBuffer, Luma, Pixel, Rgb, Rgba};
-
+use imageproc::edges::canny;
 use std::{collections::HashMap, ops::Range, path::Path, usize};
+use wasm_bindgen::prelude::*;
 
 #[derive(Debug)]
 struct DominoImageSection {
@@ -51,23 +50,6 @@ impl Default for DominoRange {
         }
     }
 }
-
-// #[derive(Debug)]
-// enum DominoPiece {
-//     ZERO(DominoRange),
-//     ONE(DominoRange),
-//     TWO(DominoRange),
-//     THREE(DominoRange),
-//     FOUR(DominoRange),
-//     FIVE(DominoRange),
-//     SIX(DominoRange),
-//     SEVEN(DominoRange),
-//     EIGHT(DominoRange),
-//     NINE(DominoRange),
-//     TEN(DominoRange),
-//     ELEVEN(DominoRange),
-//     TWELVE(DominoRange),
-// }
 
 fn construct_dominoes() -> Vec<DominoRange> {
     let dominoes = vec![
@@ -207,6 +189,18 @@ fn construct_dominoes() -> Vec<DominoRange> {
 }
 
 // fn construct_domino_ranges()
+
+#[wasm_bindgen]
+extern "C" {
+    fn alert(s: &str);
+}
+
+#[wasm_bindgen]
+pub fn greet(name: &str) {
+    unsafe {
+        alert(&format!("Hello, {}!", name));
+    }
+}
 
 fn main() {
     /*
