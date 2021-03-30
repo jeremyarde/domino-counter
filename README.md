@@ -1,3 +1,9 @@
+## build
+
+```
+wasm-pack build
+```
+
 https://github.com/facebookresearch/detr
 
 

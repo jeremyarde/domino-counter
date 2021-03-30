@@ -4,6 +4,7 @@ extern crate imageproc;
 use image::{DynamicImage, GenericImageView, ImageBuffer, Luma, Pixel, Rgb, Rgba};
 use imageproc::edges::canny;
 use std::{collections::HashMap, ops::Range, path::Path, usize};
+
 use wasm_bindgen::prelude::*;
 
 #[derive(Debug)]
@@ -189,17 +190,19 @@ fn construct_dominoes() -> Vec<DominoRange> {
 }
 
 // fn construct_domino_ranges()
+mod utils;
+// When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
+// allocator.
+#[cfg(feature = "wee_alloc")]
+#[global_allocator]
+static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 #[wasm_bindgen]
-extern "C" {
-    fn alert(s: &str);
-}
-
-#[wasm_bindgen]
-pub fn greet(name: &str) {
-    unsafe {
-        alert(&format!("Hello, {}!", name));
-    }
+pub fn greet() -> String {
+    // unsafe {
+    //     alert(&format!("Hello, {}!", name));
+    // }
+    "Hello, wasm-game-of-life!".into()
 }
 
 fn main() {
