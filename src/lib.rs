@@ -5,6 +5,7 @@ use image::{DynamicImage, GenericImageView, ImageBuffer, Luma, Pixel, Rgb, Rgba}
 use imageproc::edges::canny;
 use std::{collections::HashMap, ops::Range, path::Path, usize};
 
+use utils::set_panic_hook;
 use wasm_bindgen::prelude::*;
 
 #[derive(Debug)]
@@ -189,7 +190,6 @@ fn construct_dominoes() -> Vec<DominoRange> {
     dominoes
 }
 
-// fn construct_domino_ranges()
 mod utils;
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.
@@ -198,7 +198,7 @@ mod utils;
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 #[wasm_bindgen]
-pub fn greet() -> String {
+pub fn greet(name: &JsValue) -> String {
     // unsafe {
     //     alert(&format!("Hello, {}!", name));
     // }
@@ -274,6 +274,15 @@ fn main() {
         - send all pixels of each half to ML algorithm
         - disregard the white color? - probably ML problem
     */
+}
+
+#[wasm_bindgen]
+pub fn count_dominoes_from_path(filepath: JsValue) -> u32 {
+    set_panic_hook();
+
+    let result = find_dominos(filepath.as_string().unwrap().as_str());
+
+    return result;
 }
 
 fn detect_domino_edges_eval_data(image: &DynamicImage) -> DominoImageSection {
@@ -499,7 +508,7 @@ fn draw_domino_lines(
     image.save("tests/found_squares.png").unwrap();
 }
 
-fn find_dominos(image_path: &str) {
+fn find_dominos(image_path: &str) -> u32 {
     let mut dominos_found: Vec<(u8, u8)> = vec![];
     let mut total_value: u32 = 0;
 
@@ -564,6 +573,7 @@ fn find_dominos(image_path: &str) {
     }
 
     println!("Finished counting! Results: {}", total_value);
+    total_value
 }
 
 fn guess_domino(buckets: &[(u8, u32)], ratio: &f32) -> u8 {
