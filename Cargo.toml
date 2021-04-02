@@ -10,6 +10,12 @@ version = "0.2.0"
 crate-type = ["cdylib"]
 
 [dependencies]
+base64 = "0.13.0"
+console_error_panic_hook = {version = "0.1.6", optional = true}
 image = "0.23.14"
 imageproc = "0.22.0"
 wasm-bindgen = "0.2.72"
+web-sys = {version = "0.3.50", features = ['console']}
+
+[features]
+default = ["console_error_panic_hook"]

@@ -3,7 +3,7 @@ extern crate imageproc;
 // use core::f32;
 use image::{DynamicImage, GenericImageView, ImageBuffer, Luma, Pixel, Rgb, Rgba};
 use imageproc::edges::canny;
-use std::{collections::HashMap, ops::Range, path::Path, usize};
+use std::{collections::HashMap, convert::TryInto, ops::Range, path::Path, usize};
 
 use utils::set_panic_hook;
 use wasm_bindgen::prelude::*;
@@ -202,7 +202,9 @@ pub fn greet(name: &JsValue) -> String {
     // unsafe {
     //     alert(&format!("Hello, {}!", name));
     // }
-    "Hello, wasm-game-of-life!".into()
+    utils::set_panic_hook();
+
+    name.as_string().unwrap().into()
 }
 
 fn main() {
@@ -236,7 +238,7 @@ fn main() {
     let domino_filepath = "dominoes/IMG-20210324-WA0000.jpg"; /* 73 */
     // let domino_filepath = "dominoes/IMG-20210324-WA0002_landscape.jpg"; /* 54 */
     println!("{}", domino_filepath); //"dominoes/Screenshot_20210309-204319_Photos~4.jpg"
-    find_dominos(domino_filepath);
+                                     // find_dominos(domino_filepath);
 
     // Reading all files in folder
     // let folder_path = Path::new("dominoes/eval/");
@@ -277,10 +279,47 @@ fn main() {
 }
 
 #[wasm_bindgen]
-pub fn count_dominoes_from_path(filepath: JsValue) -> u32 {
-    set_panic_hook();
+pub fn count_dominoes_from_base64(thing: JsValue) -> u32 {
+    use web_sys::console;
 
-    let result = find_dominos(filepath.as_string().unwrap().as_str());
+    utils::set_panic_hook();
+
+    // let actual_filepath = filepath.as_string().unwrap().as_str();
+
+    // let filepath = "dominoes/IMG-20210324-WA0000.jpg";
+
+    // let result = find_dominos("string");
+    // let result = 0;
+    unsafe {
+        console::log_1(&"Hello using web-sys".into());
+    }
+
+    let mut data = thing.as_string().unwrap();
+    let found_data = data.split(",").nth(1).unwrap();
+
+    // let found_data = match data {
+    //     Some(x) => unsafe {
+    //         console::log_1(&"found data".into());
+    //         x
+    //     },
+    //     None => unsafe {
+    //         console::log_1(&"Did not find data".into());
+    //         "failed"
+    //     },
+    // };
+
+    unsafe {
+        console::log_1(&"Data:".into());
+        console::log_1(&found_data.into());
+    }
+
+    let decoded_image = base64::decode(found_data).unwrap();
+
+    let image_array = decoded_image.as_slice();
+
+    let image = image::load_from_memory(image_array).unwrap();
+
+    let result = find_dominos(image);
 
     return result;
 }
@@ -508,12 +547,12 @@ fn draw_domino_lines(
     image.save("tests/found_squares.png").unwrap();
 }
 
-fn find_dominos(image_path: &str) -> u32 {
+fn find_dominos(image: DynamicImage) -> u32 {
     let mut dominos_found: Vec<(u8, u8)> = vec![];
     let mut total_value: u32 = 0;
-
-    println!("Trying to open: {}", image_path);
-    let mut img = image::open(image_path).unwrap();
+    let mut img = image;
+    // println!("Trying to open: {}", image_path);
+    // let mut img = image::open(image_path).unwrap();
 
     // Always landscape
     if img.height() > img.width() {
