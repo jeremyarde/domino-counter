@@ -1,9 +1,10 @@
 extern crate image;
 extern crate imageproc;
 // use core::f32;
-use image::{DynamicImage, GenericImageView, ImageBuffer, Luma, Pixel, Rgb, Rgba};
+use image::{DynamicImage, GenericImageView, ImageBuffer, Luma, Pixel, Rgb, RgbImage, Rgba};
 use imageproc::edges::canny;
 use std::{collections::HashMap, convert::TryInto, ops::Range, path::Path, usize};
+use web_sys::console;
 
 use utils::set_panic_hook;
 use wasm_bindgen::prelude::*;
@@ -235,10 +236,16 @@ fn main() {
     // let domino_filepath = "dominoes/eval/1-10.jpg";
     // let domino_filepath = "dominoes/IMG-20210311-WA0002.jpg"; /* 148 */
     // let domino_filepath = "dominoes/IMG-20210306-WA0000.jpg"; // double domino line
-    let domino_filepath = "dominoes/IMG-20210324-WA0000.jpg"; /* 73 */
+    // let domino_filepath = "dominoes/IMG-20210324-WA0000.jpg"; /* 73 */
+    let domino_filepath = "dominoes/5-9.jpg"; /* 73 */
+
     // let domino_filepath = "dominoes/IMG-20210324-WA0002_landscape.jpg"; /* 54 */
     println!("{}", domino_filepath); //"dominoes/Screenshot_20210309-204319_Photos~4.jpg"
-                                     // find_dominos(domino_filepath);
+
+    let image = image::open(domino_filepath).unwrap();
+    let result = find_dominos(image);
+
+    println!("Result: {}", result);
 
     // Reading all files in folder
     // let folder_path = Path::new("dominoes/eval/");
@@ -279,7 +286,7 @@ fn main() {
 }
 
 #[wasm_bindgen]
-pub fn count_dominoes_from_base64(thing: JsValue) -> u32 {
+pub fn count_dominoes_from_base64(buffer: &[u8], width: u32, height: u32) -> u32 {
     use web_sys::console;
 
     utils::set_panic_hook();
@@ -291,35 +298,34 @@ pub fn count_dominoes_from_base64(thing: JsValue) -> u32 {
     // let result = find_dominos("string");
     // let result = 0;
     unsafe {
-        console::log_1(&"Hello using web-sys".into());
+        console::log_1(&"Starting to process".into());
     }
 
-    let mut data = thing.as_string().unwrap();
-    let found_data = data.split(",").nth(1).unwrap();
-
-    // let found_data = match data {
-    //     Some(x) => unsafe {
-    //         console::log_1(&"found data".into());
-    //         x
-    //     },
-    //     None => unsafe {
-    //         console::log_1(&"Did not find data".into());
-    //         "failed"
-    //     },
-    // };
+    // let constructed_image: ImageBuffer<u8> = ImageBuffer::from_raw(width, height, buffer);
+    let offset_multiple = 0;
+    let reconstructed_image = ImageBuffer::from_fn(width, height, |x, y| {
+        let slice = &buffer[offset_multiple * 4..offset_multiple * 4 + 4];
+        image::Rgb([slice[0], slice[1], slice[2]])
+    });
 
     unsafe {
-        console::log_1(&"Data:".into());
-        console::log_1(&found_data.into());
+        console::log_1(
+            &format!(
+                "Reconstructed image H: {}, W: {}.",
+                reconstructed_image.width(),
+                reconstructed_image.height()
+            )
+            .into(),
+        );
     }
 
-    let decoded_image = base64::decode(found_data).unwrap();
+    let t = DynamicImage::ImageRgb8(reconstructed_image);
 
-    let image_array = decoded_image.as_slice();
+    unsafe {
+        console::log_1(&format!("test image H: {}, W: {}.", t.width(), t.height()).into());
+    }
 
-    let image = image::load_from_memory(image_array).unwrap();
-
-    let result = find_dominos(image);
+    let result = find_dominos(t);
 
     return result;
 }
@@ -353,8 +359,16 @@ fn detect_inner_domino_edges(
     let dom_height = dom_section.bottom - dom_section.top;
     let dom_width = dom_section.right - dom_section.left;
 
+    unsafe {
+        console::log_1(&format!("Domino H: {}, W: {}.", dom_height, dom_width).into());
+    }
+
     let num_dominos = ((dom_width as f32 / dom_height as f32) * 2.0).round() as u8;
+
     println!("Number of dominoes: {}", num_dominos);
+    unsafe {
+        console::log_1(&format!("Found {} dominoes.", num_dominos).into());
+    }
 
     // inner edges of dominoes
     let dom_width = dom_section.right - dom_section.left;
@@ -386,7 +400,7 @@ fn detect_outer_domino_edges(image: &mut DynamicImage) -> DominoImageSection {
 
     let gray_img = image.grayscale().as_mut_luma8().unwrap().clone();
     let edges: ImageBuffer<Luma<u8>, Vec<u8>> = canny(&gray_img, 70.0, 100.0);
-    edges.save("tests/canny_edges.png").unwrap();
+    // edges.save("tests/canny_edges.png").unwrap();
 
     // finding the bottom of the domino
     domino_image_section.bottom = find_edge(
@@ -423,6 +437,10 @@ fn detect_outer_domino_edges(image: &mut DynamicImage) -> DominoImageSection {
     // lines_image.save("tests/found_squares.png").unwrap();
 
     println!("Results of domino finding: {:?}", domino_image_section);
+
+    unsafe {
+        console::log_1(&format!("Domino edges: {:#?}.", domino_image_section).into());
+    }
 
     domino_image_section
 }
@@ -544,37 +562,42 @@ fn draw_domino_lines(
         );
     }
 
-    image.save("tests/found_squares.png").unwrap();
+    // image.save("tests/found_squares.png").unwrap();
 }
 
-fn find_dominos(image: DynamicImage) -> u32 {
+fn find_dominos(mut image: DynamicImage) -> u32 {
     let mut dominos_found: Vec<(u8, u8)> = vec![];
     let mut total_value: u32 = 0;
-    let mut img = image;
+    // let mut img = image;
     // println!("Trying to open: {}", image_path);
     // let mut img = image::open(image_path).unwrap();
 
     // Always landscape
-    if img.height() > img.width() {
-        img = img.rotate270();
+    if image.height() > image.width() {
+        image = image.rotate270();
     }
-    let domino = detect_outer_domino_edges(&mut img);
 
-    let domino_inner_edges = detect_inner_domino_edges(&mut img, &domino);
+    for x in 0..5 {
+        println!("pixel x ({}), 0: {:?}", x, image.get_pixel(x, 0));
+    }
+
+    let domino = detect_outer_domino_edges(&mut image);
+
+    let domino_inner_edges = detect_inner_domino_edges(&mut image, &domino);
     // let domino = detect_domino_edges_eval_data(&mut img);
 
     // draw all of the domino edges
-    draw_domino_lines(&mut img, &domino, &domino_inner_edges);
+    // draw_domino_lines(&mut img, &domino, &domino_inner_edges);
 
     // for each domino found, do the following
     for dom_num in 1..domino_inner_edges.len() {
         let left = domino_inner_edges[dom_num - 1];
         let right = domino_inner_edges[dom_num];
 
-        let _img_clone = img.clone();
+        let _img_clone = image.clone();
 
-        let top_piece = img.crop(left, domino.top, right - left, domino.middle - domino.top);
-        let bottom_piece = img.crop(
+        let top_piece = image.crop(left, domino.top, right - left, domino.middle - domino.top);
+        let bottom_piece = image.crop(
             left,
             domino.middle,
             right - left,
@@ -609,6 +632,10 @@ fn find_dominos(image: DynamicImage) -> u32 {
 
     for (dominos_top, dominos_bottom) in dominos_found.iter() {
         println!("Domino: [{}/{}]", dominos_top, dominos_bottom);
+
+        unsafe {
+            console::log_1(&format!("Domino: [{}/{}]", dominos_top, dominos_bottom).into());
+        }
     }
 
     println!("Finished counting! Results: {}", total_value);
@@ -662,7 +689,7 @@ fn count_pixel_ranges(img: &DynamicImage) -> Vec<(u8, u32)> {
 
     let median_radius = 10;
     let testblur = imageproc::filter::median_filter(&img.to_bgra8(), median_radius, median_radius);
-    testblur.save(format!("tests/median_filter.jpg")).unwrap();
+    // testblur.save(format!("tests/median_filter.jpg")).unwrap();
 
     // let mut pixel_histo: HashMap<(u8, u8, u8), u32> = HashMap::new();
     for pixel in testblur.pixels().into_iter() {
@@ -700,7 +727,7 @@ fn count_most_common_pixels(img: &DynamicImage) {
     let bucket_mod = 5;
     let median_radius = 10;
     let testblur = imageproc::filter::median_filter(&img.to_bgra8(), median_radius, median_radius);
-    testblur.save(format!("tests/median_filter.jpg")).unwrap();
+    // testblur.save(format!("tests/median_filter.jpg")).unwrap();
 
     let mut pixel_histo: HashMap<(u8, u8, u8), u32> = HashMap::new();
     for pixel in testblur.pixels().into_iter() {
@@ -735,9 +762,9 @@ fn histogram(img: &DynamicImage) {
     let gaussian_blur = 5.0;
 
     let testblur = imageproc::filter::median_filter(&img.to_bgra8(), 5, 5);
-    testblur
-        .save(format!("tests/blur_{}.jpg", gaussian_blur))
-        .unwrap();
+    // testblur
+    //     .save(format!("tests/blur_{}.jpg", gaussian_blur))
+    //     .unwrap();
 
     let histo = imageproc::stats::histogram(&testblur);
 
@@ -887,7 +914,7 @@ fn manipulate_image() {
     // Detect edges using Canny algorithm
     let edges = canny(&bw_proper, 70.0, 100.0);
     let canny_path = output_dir.join("canny_v2.png");
-    edges.save(&canny_path).unwrap();
+    // edges.save(&canny_path).unwrap();
 
     // let mut num_circles = OutputArray();
     // opencv::imgproc::hough_circles(
@@ -909,7 +936,7 @@ fn manipulate_image() {
 
 #[cfg(test)]
 mod tests {
-    use crate::{is_black_pixel, is_white_pixel};
+    use crate::{is_black_pixel, is_white_pixel, main};
 
     #[test]
     fn test_is_black_pixel() {
@@ -930,5 +957,10 @@ mod tests {
     fn test_rounding() {
         assert!((8.1 as f32).round() as i32 == 8);
         assert!((7.9 as f32).round() as i32 == 8);
+    }
+
+    #[test]
+    fn test_main() {
+        main()
     }
 }
