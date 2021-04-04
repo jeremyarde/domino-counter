@@ -208,7 +208,7 @@ pub fn greet(name: &JsValue) -> String {
     name.as_string().unwrap().into()
 }
 
-fn main() {
+fn main(domino_filepath: &str) {
     /*
     todo:
     - wasm compatible
@@ -232,12 +232,6 @@ fn main() {
 
     // manipulate_image()
     // count_circles();
-
-    // let domino_filepath = "dominoes/eval/1-10.jpg";
-    // let domino_filepath = "dominoes/IMG-20210311-WA0002.jpg"; /* 148 */
-    // let domino_filepath = "dominoes/IMG-20210306-WA0000.jpg"; // double domino line
-    // let domino_filepath = "dominoes/IMG-20210324-WA0000.jpg"; /* 73 */
-    let domino_filepath = "dominoes/5-9.jpg"; /* 73 */
 
     // let domino_filepath = "dominoes/IMG-20210324-WA0002_landscape.jpg"; /* 54 */
     println!("{}", domino_filepath); //"dominoes/Screenshot_20210309-204319_Photos~4.jpg"
@@ -302,9 +296,10 @@ pub fn count_dominoes_from_base64(buffer: &[u8], width: u32, height: u32) -> u32
     }
 
     // let constructed_image: ImageBuffer<u8> = ImageBuffer::from_raw(width, height, buffer);
-    let offset_multiple = 0;
+    let mut offset_multiple = 0;
     let reconstructed_image = ImageBuffer::from_fn(width, height, |x, y| {
         let slice = &buffer[offset_multiple * 4..offset_multiple * 4 + 4];
+        offset_multiple += 1;
         image::Rgb([slice[0], slice[1], slice[2]])
     });
 
@@ -579,6 +574,9 @@ fn find_dominos(mut image: DynamicImage) -> u32 {
 
     for x in 0..5 {
         println!("pixel x ({}), 0: {:?}", x, image.get_pixel(x, 0));
+        unsafe {
+            console::log_1(&format!("pixel x ({}), 0: {:?}", x, image.get_pixel(x, 0)).into());
+        }
     }
 
     let domino = detect_outer_domino_edges(&mut image);
@@ -758,67 +756,6 @@ fn count_most_common_pixels(img: &DynamicImage) {
     // for channel in histo.
 }
 
-fn histogram(img: &DynamicImage) {
-    let gaussian_blur = 5.0;
-
-    let testblur = imageproc::filter::median_filter(&img.to_bgra8(), 5, 5);
-    // testblur
-    //     .save(format!("tests/blur_{}.jpg", gaussian_blur))
-    //     .unwrap();
-
-    let histo = imageproc::stats::histogram(&testblur);
-
-    let mut max_values: Vec<(usize, u32)>;
-    for (i, channel) in histo.channels.into_iter().enumerate() {
-        max_values = Vec::new();
-
-        for (rgb_key, &value) in channel.iter().enumerate() {
-            max_values.push((rgb_key, value));
-            // println!("{:?}", max_values);
-        }
-        max_values.sort_by(|a, b| a.1.cmp(&b.1));
-
-        // general white pixel filter
-        max_values = max_values
-            .iter()
-            .cloned()
-            .filter(|x| x.0 < 200)
-            .collect::<Vec<(usize, u32)>>();
-
-        match i {
-            0 => {
-                println!("R");
-
-                max_values = max_values
-                    .iter()
-                    .cloned()
-                    .filter(|x| x.0 < 240)
-                    .collect::<Vec<(usize, u32)>>();
-            }
-            1 => {
-                println!("G");
-                max_values = max_values
-                    .iter()
-                    .cloned()
-                    .filter(|x| x.0 < 220)
-                    .collect::<Vec<(usize, u32)>>();
-            }
-            2 => {
-                println!("B");
-                max_values = max_values
-                    .iter()
-                    .cloned()
-                    .filter(|x| x.0 < 200)
-                    .collect::<Vec<(usize, u32)>>();
-            }
-            _ => (),
-        }
-        let top_n: Vec<(usize, u32)> = max_values.iter().cloned().rev().take(10).collect();
-
-        println!("{:?}", top_n);
-    }
-}
-
 fn is_white_pixel((r, g, b): (u8, u8, u8), threshold: Option<u8>) -> bool {
     let white_pixel_threshold = match threshold {
         Some(_x) => threshold.unwrap(),
@@ -857,83 +794,6 @@ fn count_ratio(top_domino: &DynamicImage, _white_pixel_threshold: u8) -> f32 {
     ratio
 }
 
-fn manipulate_image() {
-    // Use the open function to load an image from a Path.
-    // `open` returns a `DynamicImage` on success.
-    let img = image::open("dominoes/IMG-20210306-WA0000.jpg").unwrap();
-
-    let output_dir = Path::new("tests");
-
-    // println!("Grey");
-    // let mut gray_img = img.grayscale().as_mut_luma8().unwrap().clone();
-    // gray_img.save(&output_dir.join("grey.png")).unwrap();
-
-    // println!("canny");
-    // // Detect edges using Canny algorithm
-    // let edges = canny(&gray_img, 70.0, 100.0);
-    // let canny_path = output_dir.join("canny.png");
-    // edges.save(&canny_path).unwrap();
-    let white = Rgb::<u8>([255, 255, 255]);
-    let _green = Rgb::<u8>([0, 255, 0]);
-    let black = Rgb::<u8>([0, 0, 0]);
-
-    let _filter_vals = vec![50, 80, 100, 110, 120, 150, 170, 190, 210];
-
-    // for filter_val in filter_vals {
-    //     let testmap = imageproc::map::map_colors(&img, |p| {
-    //         if p[0] > filter_val && p[1] > filter_val && p[2] > filter_val {
-    //             white
-    //         } else {
-    //             black
-    //         }
-    //     });
-    //     testmap
-    //         .save(&output_dir.join(format!("testmap_{}.png", filter_val)))
-    //         .unwrap();
-    // }
-    let filter_high_threshold = 170;
-    let filter_low_threshold = 80;
-
-    // let boxfiltered = imageproc::fil
-    let bw_img = imageproc::map::map_colors(&img, |p| {
-        if (p[0] > filter_high_threshold
-            && p[1] > filter_high_threshold
-            && p[2] > filter_high_threshold)
-            || (p[0] < filter_low_threshold
-                && p[1] < filter_low_threshold
-                && p[2] < filter_low_threshold)
-        {
-            white
-        } else {
-            black
-        }
-    });
-
-    let bw_proper = DynamicImage::ImageRgb8(bw_img).into_luma8();
-    println!("canny");
-    // Detect edges using Canny algorithm
-    let edges = canny(&bw_proper, 70.0, 100.0);
-    let canny_path = output_dir.join("canny_v2.png");
-    // edges.save(&canny_path).unwrap();
-
-    // let mut num_circles = OutputArray();
-    // opencv::imgproc::hough_circles(
-    //     &something,
-    //     num_circles,
-    //     HOUGH_GRADIENT,
-    //     1.5,
-    //     1.0,
-    //     80.0,
-    //     0.9,
-    //     0,
-    //     -1,
-    // );
-
-    bw_proper
-        .save(&output_dir.join(format!("testmap_{}.png", filter_high_threshold)))
-        .unwrap();
-}
-
 #[cfg(test)]
 mod tests {
     use crate::{is_black_pixel, is_white_pixel, main};
@@ -961,6 +821,12 @@ mod tests {
 
     #[test]
     fn test_main() {
-        main()
+        // let domino_filepath = "dominoes/eval/1-10.jpg";
+        // let domino_filepath = "dominoes/IMG-20210311-WA0002.jpg"; /* 148 */
+        // let domino_filepath = "dominoes/IMG-20210306-WA0000.jpg"; // double domino line
+        // let domino_filepath = "dominoes/IMG-20210324-WA0000.jpg"; /* 73 */
+        let domino_filepath = "dominoes/5_test.jpg"; /* 73 */
+
+        main(domino_filepath)
     }
 }
