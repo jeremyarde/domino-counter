@@ -198,17 +198,24 @@ mod utils;
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-#[wasm_bindgen]
-pub fn greet(name: &JsValue) -> String {
-    // unsafe {
-    //     alert(&format!("Hello, {}!", name));
-    // }
-    utils::set_panic_hook();
+enum Platform {
+    wasm,
+    windows,
+}
 
-    name.as_string().unwrap().into()
+fn log(message: String, platform: &Platform) {
+    match platform {
+        Platform::wasm => unsafe {
+            console::log_1(&message.into());
+        },
+        Platform::windows => {
+            println!("{}", message);
+        }
+    }
 }
 
 fn main(domino_filepath: &str) {
+    log(String::from("Greetings from main!"), &Platform::windows);
     /*
     todo:
     - wasm compatible
@@ -237,7 +244,7 @@ fn main(domino_filepath: &str) {
     println!("{}", domino_filepath); //"dominoes/Screenshot_20210309-204319_Photos~4.jpg"
 
     let image = image::open(domino_filepath).unwrap();
-    let result = find_dominos(image);
+    let result = find_dominos(image, Platform::windows);
 
     println!("Result: {}", result);
 
@@ -291,9 +298,7 @@ pub fn count_dominoes_from_base64(buffer: &[u8], width: u32, height: u32) -> u32
 
     // let result = find_dominos("string");
     // let result = 0;
-    unsafe {
-        console::log_1(&"Starting to process".into());
-    }
+    log(String::from("Starting to process"), &Platform::wasm);
 
     // let constructed_image: ImageBuffer<u8> = ImageBuffer::from_raw(width, height, buffer);
     let mut offset_multiple = 0;
@@ -303,24 +308,23 @@ pub fn count_dominoes_from_base64(buffer: &[u8], width: u32, height: u32) -> u32
         image::Rgb([slice[0], slice[1], slice[2]])
     });
 
-    unsafe {
-        console::log_1(
-            &format!(
-                "Reconstructed image H: {}, W: {}.",
-                reconstructed_image.width(),
-                reconstructed_image.height()
-            )
-            .into(),
-        );
-    }
+    log(
+        format!(
+            "Reconstructed image H: {}, W: {}.",
+            reconstructed_image.width(),
+            reconstructed_image.height()
+        ),
+        &Platform::wasm,
+    );
 
     let t = DynamicImage::ImageRgb8(reconstructed_image);
 
-    unsafe {
-        console::log_1(&format!("test image H: {}, W: {}.", t.width(), t.height()).into());
-    }
+    log(
+        format!("test image H: {}, W: {}.", t.width(), t.height()),
+        &Platform::wasm,
+    );
 
-    let result = find_dominos(t);
+    let result = find_dominos(t, Platform::wasm);
 
     return result;
 }
@@ -346,6 +350,7 @@ fn detect_domino_edges_eval_data(image: &DynamicImage) -> DominoImageSection {
 fn detect_inner_domino_edges(
     _image: &mut DynamicImage,
     dom_section: &DominoImageSection,
+    platform: &Platform,
 ) -> Vec<u32> {
     // let mut result = vec![];
 
@@ -354,16 +359,14 @@ fn detect_inner_domino_edges(
     let dom_height = dom_section.bottom - dom_section.top;
     let dom_width = dom_section.right - dom_section.left;
 
-    unsafe {
-        console::log_1(&format!("Domino H: {}, W: {}.", dom_height, dom_width).into());
-    }
+    log(
+        format!("Domino H: {}, W: {}.", dom_height, dom_width),
+        &platform,
+    );
 
     let num_dominos = ((dom_width as f32 / dom_height as f32) * 2.0).round() as u8;
 
-    println!("Number of dominoes: {}", num_dominos);
-    unsafe {
-        console::log_1(&format!("Found {} dominoes.", num_dominos).into());
-    }
+    log(format!("Number of dominoes: {}", num_dominos), &platform);
 
     // inner edges of dominoes
     let dom_width = dom_section.right - dom_section.left;
@@ -378,7 +381,7 @@ fn detect_inner_domino_edges(
     result
 }
 
-fn detect_outer_domino_edges(image: &mut DynamicImage) -> DominoImageSection {
+fn detect_outer_domino_edges(image: &mut DynamicImage, platform: &Platform) -> DominoImageSection {
     // let pixels: Vec<i32> = vec![-10, -5, 0, 5, 10];
     let height = image.height();
     let width = image.width();
@@ -431,11 +434,10 @@ fn detect_outer_domino_edges(image: &mut DynamicImage) -> DominoImageSection {
 
     // lines_image.save("tests/found_squares.png").unwrap();
 
-    println!("Results of domino finding: {:?}", domino_image_section);
-
-    unsafe {
-        console::log_1(&format!("Domino edges: {:#?}.", domino_image_section).into());
-    }
+    log(
+        format!("Domino edges: {:#?}.", domino_image_section),
+        &platform,
+    );
 
     domino_image_section
 }
@@ -478,7 +480,6 @@ fn find_edge(
         };
 
         if pixel_sample.iter().any(|x| x[0] == 255) {
-            println!("Found bottom edge at {}", pixel_location);
             found_edge = pixel_location as u32;
             break;
         }
@@ -560,7 +561,7 @@ fn draw_domino_lines(
     // image.save("tests/found_squares.png").unwrap();
 }
 
-fn find_dominos(mut image: DynamicImage) -> u32 {
+fn find_dominos(mut image: DynamicImage, platform: Platform) -> u32 {
     let mut dominos_found: Vec<(u8, u8)> = vec![];
     let mut total_value: u32 = 0;
     // let mut img = image;
@@ -573,15 +574,16 @@ fn find_dominos(mut image: DynamicImage) -> u32 {
     }
 
     for x in 0..5 {
-        println!("pixel x ({}), 0: {:?}", x, image.get_pixel(x, 0));
-        unsafe {
-            console::log_1(&format!("pixel x ({}), 0: {:?}", x, image.get_pixel(x, 0)).into());
-        }
+        // println!("pixel x ({}), 0: {:?}", x, image.get_pixel(x, 0));
+        log(
+            format!("pixel x ({}), 0: {:?}", x, image.get_pixel(x, 0)),
+            &platform,
+        );
     }
 
-    let domino = detect_outer_domino_edges(&mut image);
+    let domino = detect_outer_domino_edges(&mut image, &platform);
 
-    let domino_inner_edges = detect_inner_domino_edges(&mut image, &domino);
+    let domino_inner_edges = detect_inner_domino_edges(&mut image, &domino, &platform);
     // let domino = detect_domino_edges_eval_data(&mut img);
 
     // draw all of the domino edges
@@ -604,14 +606,14 @@ fn find_dominos(mut image: DynamicImage) -> u32 {
         // top_piece.save("tests/top.png").unwrap();
         // bottom_piece.save("tests/bottom.png").unwrap();
 
-        println!("Top:");
+        log(String::from("Top"), &platform);
         // count_most_common_pixels(&top_piece);
-        let top_domino_buckets = count_pixel_ranges(&top_piece);
+        let top_domino_buckets = count_pixel_ranges(&top_piece, &platform);
         let top_ratio = count_ratio(&top_piece, 180);
 
-        println!("Bottom:");
+        log(String::from("Bottom"), &platform);
         // count_most_common_pixels(&bottom_piece);
-        let bottom_domino_buckets = count_pixel_ranges(&bottom_piece);
+        let bottom_domino_buckets = count_pixel_ranges(&bottom_piece, &platform);
         let bottom_ratio = count_ratio(&bottom_piece, 180);
 
         let top_domino: u8 = guess_domino(&top_domino_buckets, &top_ratio);
@@ -625,18 +627,21 @@ fn find_dominos(mut image: DynamicImage) -> u32 {
 
         dominos_found.push((top_domino, bottom_domino));
 
-        println!("Done analyzing.");
+        log(String::from("Done analyzing!"), &platform);
     }
 
     for (dominos_top, dominos_bottom) in dominos_found.iter() {
-        println!("Domino: [{}/{}]", dominos_top, dominos_bottom);
-
-        unsafe {
-            console::log_1(&format!("Domino: [{}/{}]", dominos_top, dominos_bottom).into());
-        }
+        // println!("Domino: [{}/{}]", dominos_top, dominos_bottom);
+        log(
+            format!("Domino: [{}/{}]", dominos_top, dominos_bottom),
+            &platform,
+        );
     }
 
-    println!("Finished counting! Results: {}", total_value);
+    log(
+        format!("Finished counting! Results: {}", total_value),
+        &&platform,
+    );
     total_value
 }
 
@@ -680,7 +685,7 @@ fn get_range_bounds(range: &Range<u8>, leeway: u8) -> Range<u8> {
     }
 }
 
-fn count_pixel_ranges(img: &DynamicImage) -> Vec<(u8, u32)> {
+fn count_pixel_ranges(img: &DynamicImage, platform: &Platform) -> Vec<(u8, u32)> {
     let doms = construct_dominoes();
 
     let mut buckets: HashMap<u8, u32> = HashMap::new();
@@ -712,11 +717,13 @@ fn count_pixel_ranges(img: &DynamicImage) -> Vec<(u8, u32)> {
         .collect();
     top_n.sort_by(|(_, a), (_, b)| b.cmp(&a));
 
-    println!("Domino buckets:\n{:?}", top_n);
+    // println!("Domino buckets:\n{:?}", top_n);
+    log(format!("Domino buckets:\n{:?}", top_n), &platform);
+
     top_n
 }
 
-fn count_most_common_pixels(img: &DynamicImage) {
+fn count_most_common_pixels(img: &DynamicImage, platform: &Platform) {
     /*
     Instead of doing the histogram, maybe doing a <(r,g,b), u32>
     map would be better than per channel histogram.
@@ -750,10 +757,7 @@ fn count_most_common_pixels(img: &DynamicImage) {
 
     top_n.sort_by(|(_, a), (_, b)| a.cmp(&b));
     top_n = top_n.into_iter().take(10).collect();
-    println!("{:?}", top_n);
-
-    println!();
-    // for channel in histo.
+    log(format!("{:?}", top_n), &platform);
 }
 
 fn is_white_pixel((r, g, b): (u8, u8, u8), threshold: Option<u8>) -> bool {
@@ -824,9 +828,8 @@ mod tests {
         // let domino_filepath = "dominoes/eval/1-10.jpg";
         // let domino_filepath = "dominoes/IMG-20210311-WA0002.jpg"; /* 148 */
         // let domino_filepath = "dominoes/IMG-20210306-WA0000.jpg"; // double domino line
-        // let domino_filepath = "dominoes/IMG-20210324-WA0000.jpg"; /* 73 */
-        let domino_filepath = "dominoes/5_test.jpg"; /* 73 */
-
+        let domino_filepath = "dominoes/IMG-20210324-WA0000.jpg"; /* 73 */
+        // let domino_filepath = "dominoes/5_test.jpg"; /* 73 */
         main(domino_filepath)
     }
 }
