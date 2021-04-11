@@ -3,11 +3,11 @@ extern crate imageproc;
 // use core::f32;
 use image::{DynamicImage, GenericImageView, ImageBuffer, Luma, Pixel, Rgb, RgbImage, Rgba};
 use imageproc::edges::canny;
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, convert::TryInto, ops::Range, path::Path, usize};
-use web_sys::console;
-
 use utils::set_panic_hook;
 use wasm_bindgen::prelude::*;
+use web_sys::console;
 
 #[derive(Debug)]
 struct DominoImageSection {
@@ -69,9 +69,9 @@ fn construct_dominoes() -> Vec<DominoRange> {
         DominoRange {
             ratio: (6.91..6.91),
             color_range: ColorRange {
-                r: (60..80),
-                g: (100..130),
-                b: (110..150),
+                r: (50..80),
+                g: (100..150),
+                b: (140..190),
             },
             value: 1,
             ..Default::default()
@@ -131,7 +131,7 @@ fn construct_dominoes() -> Vec<DominoRange> {
             color_range: ColorRange {
                 r: (160..190),
                 g: (35..70),
-                b: (75..100),
+                b: (85..130),
             },
             value: 7,
             ..Default::default()
@@ -169,7 +169,7 @@ fn construct_dominoes() -> Vec<DominoRange> {
         DominoRange {
             ratio: (6.91..6.91),
             color_range: ColorRange {
-                r: (110..130),
+                r: (120..150),
                 g: (35..65),
                 b: (50..85),
             },
@@ -244,7 +244,7 @@ fn main(domino_filepath: &str) {
     println!("{}", domino_filepath); //"dominoes/Screenshot_20210309-204319_Photos~4.jpg"
 
     let image = image::open(domino_filepath).unwrap();
-    let result = find_dominos(image, Platform::windows);
+    let (result, result_string) = find_dominos(image, Platform::windows, false);
 
     println!("Result: {}", result);
 
@@ -286,8 +286,19 @@ fn main(domino_filepath: &str) {
     */
 }
 
+#[derive(Serialize, Deserialize)]
+struct DominoResult {
+    value: u32,
+    string_rep: String,
+}
+
 #[wasm_bindgen]
-pub fn count_dominoes_from_base64(buffer: &[u8], width: u32, height: u32) -> u32 {
+pub fn count_dominoes_from_base64(
+    buffer: &[u8],
+    width: u32,
+    height: u32,
+    cropped: bool,
+) -> JsValue {
     use web_sys::console;
 
     utils::set_panic_hook();
@@ -324,9 +335,14 @@ pub fn count_dominoes_from_base64(buffer: &[u8], width: u32, height: u32) -> u32
         &Platform::wasm,
     );
 
-    let result = find_dominos(t, Platform::wasm);
+    let (result, result_string) = find_dominos(t, Platform::wasm, cropped);
 
-    return result;
+    let domino_result = DominoResult {
+        value: result,
+        string_rep: result_string,
+    };
+
+    return JsValue::from_serde(&domino_result).unwrap();
 }
 
 fn detect_domino_edges_eval_data(image: &DynamicImage) -> DominoImageSection {
@@ -561,7 +577,7 @@ fn draw_domino_lines(
     // image.save("tests/found_squares.png").unwrap();
 }
 
-fn find_dominos(mut image: DynamicImage, platform: Platform) -> u32 {
+fn find_dominos(mut image: DynamicImage, platform: Platform, cropped: bool) -> (u32, String) {
     let mut dominos_found: Vec<(u8, u8)> = vec![];
     let mut total_value: u32 = 0;
     // let mut img = image;
@@ -581,7 +597,16 @@ fn find_dominos(mut image: DynamicImage, platform: Platform) -> u32 {
         );
     }
 
-    let domino = detect_outer_domino_edges(&mut image, &platform);
+    let domino = match cropped {
+        true => DominoImageSection {
+            top: 0,
+            bottom: image.height(),
+            left: 0,
+            right: image.width(),
+            middle: image.height() / 2,
+        },
+        false => detect_outer_domino_edges(&mut image, &platform),
+    };
 
     let domino_inner_edges = detect_inner_domino_edges(&mut image, &domino, &platform);
     // let domino = detect_domino_edges_eval_data(&mut img);
@@ -630,19 +655,22 @@ fn find_dominos(mut image: DynamicImage, platform: Platform) -> u32 {
         log(String::from("Done analyzing!"), &platform);
     }
 
+    let mut domino_string = String::new();
     for (dominos_top, dominos_bottom) in dominos_found.iter() {
         // println!("Domino: [{}/{}]", dominos_top, dominos_bottom);
         log(
             format!("Domino: [{}/{}]", dominos_top, dominos_bottom),
             &platform,
         );
+        domino_string.push_str(format!("[{}/{}]", dominos_top, dominos_bottom).as_str());
     }
 
     log(
         format!("Finished counting! Results: {}", total_value),
         &&platform,
     );
-    total_value
+
+    (total_value, domino_string)
 }
 
 fn guess_domino(buckets: &[(u8, u32)], ratio: &f32) -> u8 {
@@ -825,10 +853,10 @@ mod tests {
 
     #[test]
     fn test_main() {
-        // let domino_filepath = "dominoes/eval/1-10.jpg";
+        let domino_filepath = "dominoes/5-9.jpg";
         // let domino_filepath = "dominoes/IMG-20210311-WA0002.jpg"; /* 148 */
         // let domino_filepath = "dominoes/IMG-20210306-WA0000.jpg"; // double domino line
-        let domino_filepath = "dominoes/IMG-20210324-WA0000.jpg"; /* 73 */
+        // let domino_filepath = "dominoes/IMG-20210324-WA0000.jpg"; /* 73 */
         // let domino_filepath = "dominoes/5_test.jpg"; /* 73 */
         main(domino_filepath)
     }
