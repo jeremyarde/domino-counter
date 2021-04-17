@@ -69,9 +69,9 @@ fn construct_dominoes() -> Vec<DominoRange> {
         DominoRange {
             ratio: (6.91..6.91),
             color_range: ColorRange {
-                r: (50..80),
+                r: (40..100),
                 g: (100..150),
-                b: (140..190),
+                b: (100..190),
             },
             value: 1,
             ..Default::default()
@@ -89,9 +89,9 @@ fn construct_dominoes() -> Vec<DominoRange> {
         DominoRange {
             ratio: (6.91..6.91),
             color_range: ColorRange {
-                r: (190..220),
-                g: (35..55),
-                b: (30..50),
+                r: (190..255),
+                g: (30..80),
+                b: (30..70),
             },
             value: 3,
             ..Default::default()
@@ -129,9 +129,9 @@ fn construct_dominoes() -> Vec<DominoRange> {
         DominoRange {
             ratio: (6.91..6.91),
             color_range: ColorRange {
-                r: (160..190),
+                r: (180..210),
                 g: (35..70),
-                b: (85..130),
+                b: (80..130),
             },
             value: 7,
             ..Default::default()
@@ -139,9 +139,9 @@ fn construct_dominoes() -> Vec<DominoRange> {
         DominoRange {
             ratio: (6.91..6.91),
             color_range: ColorRange {
-                r: (30..60),
-                g: (110..150),
-                b: (90..120),
+                r: (15..60),
+                g: (110..190),
+                b: (110..160),
             },
             value: 8,
             ..Default::default()
@@ -149,9 +149,9 @@ fn construct_dominoes() -> Vec<DominoRange> {
         DominoRange {
             ratio: (6.91..6.91),
             color_range: ColorRange {
-                r: (75..95),
-                g: (25..55),
-                b: (55..100),
+                r: (55..100),
+                g: (20..70),
+                b: (40..110),
             },
             value: 9,
             ..Default::default()
@@ -159,9 +159,9 @@ fn construct_dominoes() -> Vec<DominoRange> {
         DominoRange {
             ratio: (1.375..1.375),
             color_range: ColorRange {
-                r: (200..255),
-                g: (80..120),
-                b: (50..70),
+                r: (215..255),
+                g: (60..100),
+                b: (0..40),
             },
             value: 10,
             ..Default::default()
@@ -585,9 +585,22 @@ fn find_dominos(mut image: DynamicImage, platform: Platform, cropped: bool) -> (
     // let mut img = image::open(image_path).unwrap();
 
     // Always landscape
-    if image.height() > image.width() {
-        image = image.rotate270();
-    }
+    image = match cropped {
+        true => {
+            if image.height() / image.width() > 1 {
+                log(String::from("Rotating image (cropped)"), &platform);
+                image = image.rotate270();
+            }
+            image
+        }
+        false => {
+            if image.height() > image.width() {
+                log(String::from("Rotating image (non-cropped)"), &platform);
+                image = image.rotate270();
+            }
+            image
+        }
+    };
 
     for x in 0..5 {
         // println!("pixel x ({}), 0: {:?}", x, image.get_pixel(x, 0));
@@ -674,7 +687,7 @@ fn find_dominos(mut image: DynamicImage, platform: Platform, cropped: bool) -> (
 }
 
 fn guess_domino(buckets: &[(u8, u32)], ratio: &f32) -> u8 {
-    let count_threshold = 200;
+    let count_threshold = 40;
 
     let guessed_value = match buckets.first() {
         Some((value, count)) => {
