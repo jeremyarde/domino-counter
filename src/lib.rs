@@ -1,7 +1,7 @@
 extern crate image;
 extern crate imageproc;
 // use core::f32;
-use image::{DynamicImage, GenericImageView, ImageBuffer, Luma, Pixel, Rgb, RgbImage, Rgba};
+use image::{math, DynamicImage, GenericImageView, ImageBuffer, Luma, Pixel, Rgb, RgbImage, Rgba};
 use imageproc::edges::canny;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, convert::TryInto, ops::Range, path::Path, usize};
@@ -578,6 +578,8 @@ fn draw_domino_lines(
 }
 
 fn find_dominos(mut image: DynamicImage, platform: Platform, cropped: bool) -> (u32, String) {
+    bin_pixels(&image, &platform);
+
     let mut dominos_found: Vec<(u8, u8)> = vec![];
     let mut total_value: u32 = 0;
     // let mut img = image;
@@ -839,6 +841,42 @@ fn count_ratio(top_domino: &DynamicImage, _white_pixel_threshold: u8) -> f32 {
     ratio
 }
 
+fn bin_pixels(img: &DynamicImage, platform: &Platform) {
+    // let doms = construct_dominoes();
+
+    // let mut buckets: HashMap<u8, u32> = HashMap::new();
+    const NUM_BUCKETS: usize = 26;
+    let denominator = (255 as f32 / NUM_BUCKETS as f32).ceil() as usize;
+
+    let mut r_bucket: [u32; NUM_BUCKETS] = [0; NUM_BUCKETS];
+    let mut g_bucket: [u32; NUM_BUCKETS] = [0; NUM_BUCKETS];
+    let mut b_bucket: [u32; NUM_BUCKETS] = [0; NUM_BUCKETS];
+
+    // let median_radius = 10;
+    // let testblur = imageproc::filter::median_filter(&img.to_rgb(), median_radius, median_radius);
+    // testblur.save(format!("tests/median_filter.jpg")).unwrap();
+
+    // let mut pixel_histo: HashMap<(u8, u8, u8), u32> = HashMap::new();
+    for (x, y, pixel) in img.pixels() {
+        // let (r, g, b) = (pixel[2], pixel[1], pixel[0]);
+        let (r, g, b) = (pixel[0], pixel[1], pixel[2]);
+        log(format!("Pixels r/g/b: {}/{}/{}.", r, g, b), &platform);
+        // log(
+        //     format!("bins: \n{:?}\n{:?}\n{:?}", r_bucket, g_bucket, b_bucket),
+        //     &platform,
+        // );
+        log(format!("{}", r as usize / denominator), &platform);
+        r_bucket[r as usize / denominator] += 1;
+        g_bucket[g as usize / denominator] += 1;
+        b_bucket[b as usize / denominator] += 1;
+    }
+
+    log(
+        format!("bins: \n{:?}\n{:?}\n{:?}", r_bucket, g_bucket, b_bucket),
+        &platform,
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{is_black_pixel, is_white_pixel, main};
@@ -866,11 +904,13 @@ mod tests {
 
     #[test]
     fn test_main() {
-        let domino_filepath = "dominoes/5-9.jpg";
+        // let domino_filepath = "dominoes/5-9.jpg";
         // let domino_filepath = "dominoes/IMG-20210311-WA0002.jpg"; /* 148 */
         // let domino_filepath = "dominoes/IMG-20210306-WA0000.jpg"; // double domino line
         // let domino_filepath = "dominoes/IMG-20210324-WA0000.jpg"; /* 73 */
         // let domino_filepath = "dominoes/5_test.jpg"; /* 73 */
+        let domino_filepath = "dominoes/halves/1_one/1-2.jpg";
+
         main(domino_filepath)
     }
 }
