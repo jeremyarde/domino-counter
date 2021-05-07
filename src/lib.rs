@@ -3,6 +3,7 @@ extern crate imageproc;
 // use core::f32;
 use image::{math, DynamicImage, GenericImageView, ImageBuffer, Luma, Pixel, Rgb, RgbImage, Rgba};
 use imageproc::edges::canny;
+use linfa::prelude::Records;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, convert::TryInto, ops::Range, path::Path, usize};
 use utils::set_panic_hook;
@@ -865,7 +866,7 @@ fn bin_pixels(img: &DynamicImage, platform: &Platform) {
         //     format!("bins: \n{:?}\n{:?}\n{:?}", r_bucket, g_bucket, b_bucket),
         //     &platform,
         // );
-        log(format!("{}", r as usize / denominator), &platform);
+        log(format!("{}", r as usize % denominator), &platform);
         r_bucket[r as usize / denominator] += 1;
         g_bucket[g as usize / denominator] += 1;
         b_bucket[b as usize / denominator] += 1;
