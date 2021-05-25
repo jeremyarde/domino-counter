@@ -1,0 +1,13 @@
+[package]
+authors = ["Jeremy <jere.arde@gmail.com>"]
+edition = "2018"
+name = "domino-counter-model"
+version = "0.1.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+linfa = {version = "0.4.0"}
+linfa-datasets = {version = "0.4.0", features = ["winequality"]}
+linfa-kernel = {version = "0.4.0"}
+linfa-svm = {version = "0.4.0"}

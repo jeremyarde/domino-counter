@@ -1,9 +1,11 @@
 extern crate image;
 extern crate imageproc;
 // use core::f32;
-use image::{math, DynamicImage, GenericImageView, ImageBuffer, Luma, Pixel, Rgb, RgbImage, Rgba};
-use imageproc::edges::canny;
-use linfa::prelude::Records;
+use image::{
+    math, DynamicImage, GenericImage, GenericImageView, ImageBuffer, Luma, Pixel, Rgb, RgbImage,
+    Rgba,
+};
+use imageproc::{contours::find_contours, edges::canny};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, convert::TryInto, ops::Range, path::Path, usize};
 use utils::set_panic_hook;
@@ -878,9 +880,74 @@ fn bin_pixels(img: &DynamicImage, platform: &Platform) {
     );
 }
 
+fn testing_new_stuff(domino_filepath: &str) {
+    let img = image::open(domino_filepath).unwrap();
+
+    let median_radius = 5;
+    let mut testblur =
+        imageproc::filter::median_filter(&img.to_rgb8(), median_radius, median_radius);
+
+    // let gray_img = img.grayscale().as_mut_luma8().unwrap().clone();
+    // // let edges: ImageBuffer<Luma<u8>, Vec<u8>> = canny(&gray_img, 70.0, 100.0);
+    // let testimg = find_contours::<u64>(&gray_img);
+    // edges.save("tests/canny_edges.png").unwrap();
+
+    // let mut new_image = testblur.clone();
+    let mut image_ut = testblur;
+
+    for rgba in image_ut.pixels_mut() {
+        let brightness = rgba[0] as f32 * 0.299 + rgba[1] as f32 * 0.587 + rgba[2] as f32 * 0.114;
+        // log(format!("{}", brightness), &Platform::windows);
+        match brightness {
+            0.0..=80.0 => {
+                rgba[0] = 0;
+                rgba[1] = 0;
+                rgba[2] = 0;
+            }
+            // 200.0..=255.0 => {
+            //     rgba[0] = 0;
+            //     rgba[1] = 0;
+            //     rgba[2] = 0;
+            // }
+            _ => {}
+        }
+        // let brightness = rgba[0] as f32 * 0.21 + rgba[1] as f32 * 0.72 + rgba[2] as f32 * 0.07;
+        // // log(format!("{}", brightness), &Platform::windows);
+        // match brightness {
+        //     0.0..=80.0 => {
+        //         rgba[0] = 0;
+        //         rgba[1] = 0;
+        //         rgba[2] = 0;
+        //     }
+        //     // 200.0..=255.0 => {
+        //     //     rgba[0] = 0;
+        //     //     rgba[1] = 0;
+        //     //     rgba[2] = 0;
+        //     // }
+        //     _ => {}
+        // }
+        // log("some message".to_string(), &Platform::windows);
+    }
+    image_ut
+        .save("tests/testing_new_stuff-brightness.jpg")
+        .unwrap();
+
+    // gray_img.save("tests/testing_new_stuff-gray.jpg").unwrap();
+    // testblur.save("tests/testing_new_stuff-blur.jpg").unwrap();
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::{is_black_pixel, is_white_pixel, main};
+    use crate::{is_black_pixel, is_white_pixel, main, testing_new_stuff};
+
+    #[test]
+    fn test_new_things() {
+        // let domino_filepath = "dominoes/halves/1_one/1-2.jpg";
+        // let domino_filepath = "dominoes/IMG-20210324-WA0002_landscape.jpg";
+        let domino_filepath = "dominoes/IMG-20210306-WA0001.jpg";
+
+        testing_new_stuff(domino_filepath)
+    }
 
     #[test]
     fn test_is_black_pixel() {
