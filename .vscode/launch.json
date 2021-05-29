@@ -7,39 +7,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'domino-counter'",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--bin=domino-counter",
-                    "--package=domino-counter"
-                ],
-                "filter": {
-                    "name": "domino-counter",
-                    "kind": "bin"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in executable 'domino-counter'",
+            "name": "Cargo test",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--bin=domino-counter",
-                    "--package=domino-counter"
-                ],
-                "filter": {
-                    "name": "domino-counter",
-                    "kind": "bin"
-                }
+                    "--lib"
+                ]
             },
-            "args": [],
-            "cwd": "${workspaceFolder}"
+            "program": "${cargo:program}",
+            "args": []
         }
     ]
 }
