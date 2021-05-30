@@ -277,7 +277,7 @@ pub fn count_dominoes_from_base64(
     height: u32,
     cropped: bool,
 ) -> JsValue {
-    use web_sys::console;
+    // use web_sys::console;
 
     // utils::set_panic_hook();
 
@@ -321,6 +321,7 @@ pub fn count_dominoes_from_base64(
     };
 
     return JsValue::from_serde(&domino_result).unwrap();
+    // JsValue::from_serde((result, result_string))
 }
 
 fn detect_domino_edges_eval_data(image: &DynamicImage) -> DominoImageSection {
