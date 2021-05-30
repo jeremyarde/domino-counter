@@ -209,7 +209,7 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 fn main(domino_filepath: &str) {
     log::logger(
         String::from("Greetings from main!"),
-        &log::Platform::windows,
+        &log::Platform::Windows,
     );
     /*
     todo:
@@ -239,7 +239,7 @@ fn main(domino_filepath: &str) {
     println!("{}", domino_filepath); //"dominoes/Screenshot_20210309-204319_Photos~4.jpg"
 
     let image = image::open(domino_filepath).unwrap();
-    let (result, result_string) = find_dominos(image, log::Platform::windows, false);
+    let (result, result_string) = find_dominos(image, log::Platform::Windows, false);
 
     println!("Result: {}", result);
 
@@ -287,7 +287,7 @@ pub fn count_dominoes_from_base64(
 
     // let result = find_dominos("string");
     // let result = 0;
-    log::logger(String::from("Starting to process"), &log::Platform::wasm);
+    log::logger(String::from("Starting to process"), &log::Platform::Wasm);
 
     // let constructed_image: ImageBuffer<u8> = ImageBuffer::from_raw(width, height, buffer);
     let mut offset_multiple = 0;
@@ -303,17 +303,17 @@ pub fn count_dominoes_from_base64(
             reconstructed_image.width(),
             reconstructed_image.height()
         ),
-        &log::Platform::wasm,
+        &log::Platform::Wasm,
     );
 
     let t = DynamicImage::ImageRgb8(reconstructed_image);
 
     log::logger(
         format!("test image H: {}, W: {}.", t.width(), t.height()),
-        &log::Platform::wasm,
+        &log::Platform::Wasm,
     );
 
-    let (result, result_string) = find_dominos(t, log::Platform::wasm, cropped);
+    let (result, result_string) = find_dominos(t, log::Platform::Wasm, cropped);
 
     let domino_result = DominoResult {
         value: result,
@@ -639,7 +639,7 @@ fn find_dominos(mut image: DynamicImage, platform: log::Platform, cropped: bool)
 
         // let top_domino: u8 = guess_domino(&top_domino_buckets, &top_ratio);
         let bottom_domino: u8 = guess_domino(&bottom_domino_buckets, &bottom_ratio);
-        let top_domino: u8 = match ml::model_loading(top_piece.as_bytes()) {
+        let top_domino: u8 = match ml::model_loading(&top_piece, &bottom_piece) {
             Ok((value, index)) => index as u8,
             Err(_) => 0,
         };
@@ -879,7 +879,7 @@ fn testing_new_stuff(domino_filepath: &str) {
 
     for rgba in image_ut.pixels_mut() {
         let brightness = rgba[0] as f32 * 0.299 + rgba[1] as f32 * 0.587 + rgba[2] as f32 * 0.114;
-        // log::logger(format!("{}", brightness), &log::Platform::windows);
+        // log::logger(format!("{}", brightness), &log::Platform::Windows);
         match brightness {
             0.0..=80.0 => {
                 rgba[0] = 0;
@@ -894,7 +894,7 @@ fn testing_new_stuff(domino_filepath: &str) {
             _ => {}
         }
         // let brightness = rgba[0] as f32 * 0.21 + rgba[1] as f32 * 0.72 + rgba[2] as f32 * 0.07;
-        // // log::logger(format!("{}", brightness), &log::Platform::windows);
+        // // log::logger(format!("{}", brightness), &log::Platform::Windows);
         // match brightness {
         //     0.0..=80.0 => {
         //         rgba[0] = 0;
@@ -908,7 +908,7 @@ fn testing_new_stuff(domino_filepath: &str) {
         //     // }
         //     _ => {}
         // }
-        // log::logger("some message".to_string(), &log::Platform::windows);
+        // log::logger("some message".to_string(), &log::Platform::Windows);
     }
     image_ut
         .save("tests/testing_new_stuff-brightness.jpg")
@@ -926,8 +926,12 @@ mod tests {
     fn testing_model() {
         let domino_filepath = "model_building\\data\\train\\5\\5-2.jpg";
 
+        // let img = image::load_from_memory(image_bytes)?.to_rgb8();
+        // let resized = image::imageops::resize(&img, 224, 224, image::imageops::FilterType::Nearest);
+
         let img = image::open(domino_filepath).unwrap();
-        let result = ml::model_loading(&img.into_bytes());
+
+        let result = ml::model_loading(&img, &img);
         println!("{:?}", result);
     }
 

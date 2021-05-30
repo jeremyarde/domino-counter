@@ -297,7 +297,6 @@ dependencies = [
  "image",
  "imageproc",
  "serde",
- "tract-nnef",
  "tract-onnx",
  "wasm-bindgen",
  "web-sys",

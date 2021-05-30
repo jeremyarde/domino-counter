@@ -1,16 +1,16 @@
 use web_sys::console;
 
 pub enum Platform {
-    wasm,
-    windows,
+    Wasm,
+    Windows,
 }
 
 pub fn logger(message: String, platform: &Platform) {
     match platform {
-        Platform::wasm => unsafe {
+        Platform::Wasm => unsafe {
             console::log_1(&message.into());
         },
-        Platform::windows => {
+        Platform::Windows => {
             println!("{}", message);
         }
     }
