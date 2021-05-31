@@ -651,8 +651,8 @@ impl DominoPredicter {
         // let top_domino: u8 = guess_domino(&top_domino_buckets, &top_ratio);
         // let bottom_domino: u8 = guess_domino(&bottom_domino_buckets, &bottom_ratio);
 
-        let domino_prediction: u8 = match self.model.predict(&domino_image_section) {
-            Ok((value, index)) => index as u8,
+        let domino_prediction: u8 = match &self.model.predict(&domino_image_section) {
+            Ok((value, index)) => *index as u8,
             Err(_) => 0,
         };
         domino_prediction
@@ -666,10 +666,13 @@ impl DominoPredicter {
         cropped: bool,
     ) -> JsValue {
         init_panic_hook();
+        log::logger(String::from("Starting to process."), &log::Platform::Wasm);
 
         if self.loaded != true {
+            log::logger(String::from("Loading model."), &log::Platform::Wasm);
             self.model = ml::Model::new();
         }
+        log::logger(String::from("Model loaded."), &log::Platform::Wasm);
         // use web_sys::console;
 
         // utils::set_panic_hook();
@@ -680,7 +683,6 @@ impl DominoPredicter {
 
         // let result = find_dominos("string");
         // let result = 0;
-        log::logger(String::from("Starting to process"), &log::Platform::Wasm);
 
         // let constructed_image: ImageBuffer<u8> = ImageBuffer::from_raw(width, height, buffer);
         let mut offset_multiple = 0;
@@ -706,7 +708,7 @@ impl DominoPredicter {
             &log::Platform::Wasm,
         );
 
-        let (result, result_string) = self.find_dominos(t, log::Platform::Wasm, cropped);
+        let (result, result_string) = *self.find_dominos(t, log::Platform::Wasm, cropped);
 
         let domino_result = DominoResult {
             value: result,
