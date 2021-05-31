@@ -12,8 +12,11 @@ use image::{
     Rgba,
 };
 use imageproc::{contours::find_contours, edges::canny};
+use ml::Model;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, convert::TryInto, io::Cursor, ops::Range, path::Path, usize};
+use std::{
+    collections::HashMap, convert::TryInto, io::Cursor, ops::Range, path::Path, sync::Arc, usize,
+};
 // use utils::set_panic_hook;
 use wasm_bindgen::prelude::*;
 use web_sys::console;
@@ -211,6 +214,7 @@ fn main(domino_filepath: &str) {
         String::from("Greetings from main!"),
         &log::Platform::Windows,
     );
+
     /*
     todo:
     - wasm compatible
@@ -239,7 +243,9 @@ fn main(domino_filepath: &str) {
     println!("{}", domino_filepath); //"dominoes/Screenshot_20210309-204319_Photos~4.jpg"
 
     let image = image::open(domino_filepath).unwrap();
-    let (result, result_string) = find_dominos(image, log::Platform::Windows, false);
+    let mut dom_pred = DominoPredicter::new();
+
+    let (result, result_string) = &dom_pred.find_dominos(image, log::Platform::Windows, false);
 
     println!("Result: {}", result);
 
@@ -270,60 +276,9 @@ struct DominoResult {
     string_rep: String,
 }
 
-#[wasm_bindgen]
-pub fn count_dominoes_from_base64(
-    buffer: &[u8],
-    width: u32,
-    height: u32,
-    cropped: bool,
-) -> JsValue {
-    // use web_sys::console;
+// let mut MODEL: Arc<ml::Model> = Arc::new(ml::Model::new());
 
-    // utils::set_panic_hook();
-
-    // let actual_filepath = filepath.as_string().unwrap().as_str();
-
-    // let filepath = "dominoes/IMG-20210324-WA0000.jpg";
-
-    // let result = find_dominos("string");
-    // let result = 0;
-    log::logger(String::from("Starting to process"), &log::Platform::Wasm);
-
-    // let constructed_image: ImageBuffer<u8> = ImageBuffer::from_raw(width, height, buffer);
-    let mut offset_multiple = 0;
-    let reconstructed_image = ImageBuffer::from_fn(width, height, |x, y| {
-        let slice = &buffer[offset_multiple * 4..offset_multiple * 4 + 4];
-        offset_multiple += 1;
-        image::Rgb([slice[0], slice[1], slice[2]])
-    });
-
-    log::logger(
-        format!(
-            "Reconstructed image H: {}, W: {}.",
-            reconstructed_image.width(),
-            reconstructed_image.height()
-        ),
-        &log::Platform::Wasm,
-    );
-
-    let t = DynamicImage::ImageRgb8(reconstructed_image);
-
-    log::logger(
-        format!("test image H: {}, W: {}.", t.width(), t.height()),
-        &log::Platform::Wasm,
-    );
-
-    let (result, result_string) = find_dominos(t, log::Platform::Wasm, cropped);
-
-    let domino_result = DominoResult {
-        value: result,
-        string_rep: result_string,
-    };
-
-    return JsValue::from_serde(&domino_result).unwrap();
-    // JsValue::from_serde((result, result_string))
-}
-
+// #[wasm_bindgen]
 fn detect_domino_edges_eval_data(image: &DynamicImage) -> DominoImageSection {
     let height = image.height();
     let width = image.width();
@@ -559,119 +514,208 @@ fn draw_domino_lines(
     // image.save("tests/found_squares.png").unwrap();
 }
 
-fn find_dominos(mut image: DynamicImage, platform: log::Platform, cropped: bool) -> (u32, String) {
-    bin_pixels(&image, &platform);
+#[wasm_bindgen]
+pub fn init_panic_hook() {
+    console_error_panic_hook::set_once();
+}
 
-    let mut dominos_found: Vec<(u8, u8)> = vec![];
-    let mut total_value: u32 = 0;
-    // let mut img = image;
-    // println!("Trying to open: {}", image_path);
-    // let mut img = image::open(image_path).unwrap();
-
-    // Always landscape
-    image = match cropped {
-        true => {
-            if image.height() / image.width() > 1 {
-                log::logger(String::from("Rotating image (cropped)"), &platform);
-                image = image.rotate270();
-            }
-            image
+#[wasm_bindgen]
+impl DominoPredicter {
+    pub fn new() -> DominoPredicter {
+        init_panic_hook();
+        DominoPredicter {
+            model: ml::Model::new(),
+            loaded: true,
         }
-        false => {
-            if image.height() > image.width() {
-                log::logger(String::from("Rotating image (non-cropped)"), &platform);
-                image = image.rotate270();
-            }
-            image
-        }
-    };
-
-    for x in 0..5 {
-        // println!("pixel x ({}), 0: {:?}", x, image.get_pixel(x, 0));
-        log::logger(
-            format!("pixel x ({}), 0: {:?}", x, image.get_pixel(x, 0)),
-            &platform,
-        );
     }
 
-    let domino = match cropped {
-        true => DominoImageSection {
-            top: 0,
-            bottom: image.height(),
-            left: 0,
-            right: image.width(),
-            middle: image.height() / 2,
-        },
-        false => detect_outer_domino_edges(&mut image, &platform),
-    };
+    pub fn load(&mut self) {
+        if self.loaded == false {
+            self.model = ml::Model::new();
+            self.loaded = true;
+        }
+    }
 
-    let domino_inner_edges = detect_inner_domino_edges(&mut image, &domino, &platform);
-    // let domino = detect_domino_edges_eval_data(&mut img);
+    fn find_dominos(
+        &mut self,
+        mut image: DynamicImage,
+        platform: log::Platform,
+        cropped: bool,
+    ) -> (u32, String) {
+        bin_pixels(&image, &platform);
 
-    // draw all of the domino edges
-    // draw_domino_lines(&mut img, &domino, &domino_inner_edges);
+        let mut dominos_found: Vec<(u8, u8)> = vec![];
+        let mut total_value: u32 = 0;
+        // let mut img = image;
+        // println!("Trying to open: {}", image_path);
+        // let mut img = image::open(image_path).unwrap();
 
-    // for each domino found, do the following
-    for dom_num in 1..domino_inner_edges.len() {
-        let left = domino_inner_edges[dom_num - 1];
-        let right = domino_inner_edges[dom_num];
+        // Always landscape
+        image = match cropped {
+            true => {
+                if image.height() / image.width() > 1 {
+                    log::logger(String::from("Rotating image (cropped)"), &platform);
+                    image = image.rotate270();
+                }
+                image
+            }
+            false => {
+                if image.height() > image.width() {
+                    log::logger(String::from("Rotating image (non-cropped)"), &platform);
+                    image = image.rotate270();
+                }
+                image
+            }
+        };
 
-        let _img_clone = image.clone();
+        for x in 0..5 {
+            // println!("pixel x ({}), 0: {:?}", x, image.get_pixel(x, 0));
+            log::logger(
+                format!("pixel x ({}), 0: {:?}", x, image.get_pixel(x, 0)),
+                &platform,
+            );
+        }
 
-        let top_piece = image.crop(left, domino.top, right - left, domino.middle - domino.top);
-        let bottom_piece = image.crop(
-            left,
-            domino.middle,
-            right - left,
-            domino.bottom - domino.middle,
+        let domino = match cropped {
+            true => DominoImageSection {
+                top: 0,
+                bottom: image.height(),
+                left: 0,
+                right: image.width(),
+                middle: image.height() / 2,
+            },
+            false => detect_outer_domino_edges(&mut image, &platform),
+        };
+
+        let domino_inner_edges = detect_inner_domino_edges(&mut image, &domino, &platform);
+        // let domino = detect_domino_edges_eval_data(&mut img);
+
+        // draw all of the domino edges
+        // draw_domino_lines(&mut img, &domino, &domino_inner_edges);
+
+        // for each domino found, do the following
+        for dom_num in 1..domino_inner_edges.len() {
+            let left = domino_inner_edges[dom_num - 1];
+            let right = domino_inner_edges[dom_num];
+
+            let _img_clone = image.clone();
+
+            let top_piece = image.crop(left, domino.top, right - left, domino.middle - domino.top);
+            let bottom_piece = image.crop(
+                left,
+                domino.middle,
+                right - left,
+                domino.bottom - domino.middle,
+            );
+            // top_piece.save("tests/top.png").unwrap();
+            // bottom_piece.save("tests/bottom.png").unwrap();
+
+            let top_domino = self.predict_domino_half(&top_piece);
+            let bottom_domino = self.predict_domino_half(&bottom_piece);
+
+            if top_domino == 0 && bottom_domino == 0 {
+                total_value += 50;
+            } else {
+                total_value += (top_domino + bottom_domino) as u32;
+            }
+
+            dominos_found.push((top_domino, bottom_domino));
+
+            log::logger(String::from("Done analyzing!"), &platform);
+        }
+
+        let mut domino_string = String::new();
+        for (dominos_top, dominos_bottom) in dominos_found.iter() {
+            // println!("Domino: [{}/{}]", dominos_top, dominos_bottom);
+            log::logger(
+                format!("Domino: [{}/{}]", dominos_top, dominos_bottom),
+                &platform,
+            );
+            domino_string.push_str(format!("[{}/{}]", dominos_top, dominos_bottom).as_str());
+        }
+
+        log::logger(
+            format!("Finished counting! Results: {}", total_value),
+            &platform,
         );
-        // top_piece.save("tests/top.png").unwrap();
-        // bottom_piece.save("tests/bottom.png").unwrap();
 
-        log::logger(String::from("Top"), &platform);
-        // count_most_common_pixels(&top_piece);
-        let top_domino_buckets = count_pixel_ranges(&top_piece, &platform);
-        let top_ratio = count_ratio(&top_piece, 180);
+        (total_value, domino_string)
+    }
 
-        log::logger(String::from("Bottom"), &platform);
-        // count_most_common_pixels(&bottom_piece);
-        let bottom_domino_buckets = count_pixel_ranges(&bottom_piece, &platform);
-        let bottom_ratio = count_ratio(&bottom_piece, 180);
+    fn predict_domino_half(&mut self, domino_image_section: &DynamicImage) -> u8 {
+        // log::logger(String::from("Top"), &platform);
+        // // count_most_common_pixels(&top_piece);
+        // let domino_buckets = count_pixel_ranges(&top_piece, &platform);
+        // let ratio = count_ratio(&top_piece, 180);
 
         // let top_domino: u8 = guess_domino(&top_domino_buckets, &top_ratio);
-        let bottom_domino: u8 = guess_domino(&bottom_domino_buckets, &bottom_ratio);
-        let top_domino: u8 = match ml::model_loading(&top_piece, &bottom_piece) {
+        // let bottom_domino: u8 = guess_domino(&bottom_domino_buckets, &bottom_ratio);
+
+        let domino_prediction: u8 = match self.model.predict(&domino_image_section) {
             Ok((value, index)) => index as u8,
             Err(_) => 0,
         };
+        domino_prediction
+    }
 
-        if top_domino == 0 && bottom_domino == 0 {
-            total_value += 50;
-        } else {
-            total_value += (top_domino + bottom_domino) as u32;
+    pub fn count_dominoes(
+        &mut self,
+        buffer: &[u8],
+        width: u32,
+        height: u32,
+        cropped: bool,
+    ) -> JsValue {
+        init_panic_hook();
+
+        if self.loaded != true {
+            self.model = ml::Model::new();
         }
+        // use web_sys::console;
 
-        dominos_found.push((top_domino, bottom_domino));
+        // utils::set_panic_hook();
 
-        log::logger(String::from("Done analyzing!"), &platform);
-    }
+        // let actual_filepath = filepath.as_string().unwrap().as_str();
 
-    let mut domino_string = String::new();
-    for (dominos_top, dominos_bottom) in dominos_found.iter() {
-        // println!("Domino: [{}/{}]", dominos_top, dominos_bottom);
+        // let filepath = "dominoes/IMG-20210324-WA0000.jpg";
+
+        // let result = find_dominos("string");
+        // let result = 0;
+        log::logger(String::from("Starting to process"), &log::Platform::Wasm);
+
+        // let constructed_image: ImageBuffer<u8> = ImageBuffer::from_raw(width, height, buffer);
+        let mut offset_multiple = 0;
+        let reconstructed_image = ImageBuffer::from_fn(width, height, |x, y| {
+            let slice = &buffer[offset_multiple * 4..offset_multiple * 4 + 4];
+            offset_multiple += 1;
+            image::Rgb([slice[0], slice[1], slice[2]])
+        });
+
         log::logger(
-            format!("Domino: [{}/{}]", dominos_top, dominos_bottom),
-            &platform,
+            format!(
+                "Reconstructed image H: {}, W: {}.",
+                reconstructed_image.width(),
+                reconstructed_image.height()
+            ),
+            &log::Platform::Wasm,
         );
-        domino_string.push_str(format!("[{}/{}]", dominos_top, dominos_bottom).as_str());
+
+        let t = DynamicImage::ImageRgb8(reconstructed_image);
+
+        log::logger(
+            format!("test image H: {}, W: {}.", t.width(), t.height()),
+            &log::Platform::Wasm,
+        );
+
+        let (result, result_string) = self.find_dominos(t, log::Platform::Wasm, cropped);
+
+        let domino_result = DominoResult {
+            value: result,
+            string_rep: result_string,
+        };
+
+        return JsValue::from_serde(&domino_result).unwrap();
+        // JsValue::from_serde((result, result_string))
     }
-
-    log::logger(
-        format!("Finished counting! Results: {}", total_value),
-        &platform,
-    );
-
-    (total_value, domino_string)
 }
 
 fn guess_domino(buckets: &[(u8, u32)], ratio: &f32) -> u8 {
@@ -919,21 +963,25 @@ fn testing_new_stuff(domino_filepath: &str) {
     // testblur.save("tests/testing_new_stuff-blur.jpg").unwrap();
 }
 
+#[wasm_bindgen]
+pub struct DominoPredicter {
+    // model: tract_hir::infer::InferenceSimplePlan<InferenceModel>,
+    model: Model,
+    loaded: bool,
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::{is_black_pixel, is_white_pixel, main, ml, testing_new_stuff};
+    use crate::{is_black_pixel, is_white_pixel, main, testing_new_stuff, DominoPredicter};
 
     #[test]
-    fn testing_model() {
+    fn test_predictor() {
+        let mut dom_pred = DominoPredicter::new();
+
         let domino_filepath = "model_building\\data\\train\\5\\5-2.jpg";
+        let image = image::open(domino_filepath).unwrap();
 
-        // let img = image::load_from_memory(image_bytes)?.to_rgb8();
-        // let resized = image::imageops::resize(&img, 224, 224, image::imageops::FilterType::Nearest);
-
-        let img = image::open(domino_filepath).unwrap();
-
-        let result = ml::model_loading(&img, &img);
-        println!("{:?}", result);
+        let results = dom_pred.predict_domino_half(&image);
     }
 
     #[test]
