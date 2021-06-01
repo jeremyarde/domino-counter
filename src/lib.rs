@@ -708,7 +708,7 @@ impl DominoPredicter {
             &log::Platform::Wasm,
         );
 
-        let (result, result_string) = *self.find_dominos(t, log::Platform::Wasm, cropped);
+        let (result, result_string) = self.find_dominos(t, log::Platform::Wasm, cropped);
 
         let domino_result = DominoResult {
             value: result,
